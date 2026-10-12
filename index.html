@@ -6,6 +6,9 @@
   <meta name="theme-color" content="#080914">
   <meta name="description" content="FOCUS — Diário de evolução pessoal, tarefas e desempenho.">
   <title>FOCUS — Diário de Evolução</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="stylesheet" href="css/style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.js"></script>
   <script src="js/app.js" defer></script>
@@ -111,6 +114,30 @@
           <section class="panel">
             <h2><span class="accent">✧</span> Reflexão pessoal</h2>
             <p class="reflection-copy">Use as descrições para observar padrões: o que ajudou, o que atrapalhou e qual será seu próximo passo.</p>
+            <div class="day-checkin">
+              <h3 class="insight-title">Check-in de <span id="checkin-label">hoje</span></h3>
+              <div class="scale-row"><span class="scale-name">Humor</span>
+                <div id="mood-scale" class="scale" role="group" aria-label="Humor">
+                  <button type="button" data-mood="1" aria-label="Humor 1 de 5">😞</button>
+                  <button type="button" data-mood="2" aria-label="Humor 2 de 5">😕</button>
+                  <button type="button" data-mood="3" aria-label="Humor 3 de 5">😐</button>
+                  <button type="button" data-mood="4" aria-label="Humor 4 de 5">🙂</button>
+                  <button type="button" data-mood="5" aria-label="Humor 5 de 5">😄</button>
+                </div>
+              </div>
+              <div class="scale-row"><span class="scale-name">Energia</span>
+                <div id="energy-scale" class="scale" role="group" aria-label="Energia">
+                  <button type="button" data-energy="1" aria-label="Energia 1 de 5">1</button>
+                  <button type="button" data-energy="2" aria-label="Energia 2 de 5">2</button>
+                  <button type="button" data-energy="3" aria-label="Energia 3 de 5">3</button>
+                  <button type="button" data-energy="4" aria-label="Energia 4 de 5">4</button>
+                  <button type="button" data-energy="5" aria-label="Energia 5 de 5">5</button>
+                </div>
+              </div>
+              <label class="edit-label" for="day-note">Nota de <span id="note-label">hoje</span></label>
+              <textarea id="day-note" class="field" maxlength="1000" rows="3" placeholder="Como foi o dia? O que ajudou ou atrapalhou?"></textarea>
+              <button id="day-note-save" class="button secondary" type="button">Salvar nota</button>
+            </div>
             <div class="backup-actions">
               <button id="export-button" class="button secondary" type="button">⇩ Exportar meus dados (.json)</button>
               <button id="import-button" class="button secondary" type="button">⇧ Importar backup (.json)</button>
@@ -167,6 +194,24 @@
           </div>
           <p id="week-compare-note" class="muted small"></p>
         </section>
+        <section class="panel insights-panel">
+          <h2><span class="accent">✧</span> Insights</h2>
+          <h3 class="insight-title">Categoria para observar <small>(últimos 30 dias)</small></h3>
+          <p id="insight-category" class="muted"></p>
+          <h3 class="insight-title">Melhor dia da semana <small>(todo o histórico)</small></h3>
+          <p id="insight-weekday" class="muted"></p>
+          <h3 class="insight-title">Motivos das falhas <small>(últimos 30 dias)</small></h3>
+          <div id="failure-reasons" class="reason-rows"></div>
+          <h3 class="insight-title">Humor e energia <small>(todo o histórico)</small></h3>
+          <p id="insight-mood" class="muted"></p>
+          <p id="insight-energy" class="muted"></p>
+          <p class="muted small">É só um padrão dos seus registros, não uma causa.</p>
+        </section>
+        <section class="panel heatmap-panel">
+          <h2><span class="accent">▦</span> Mapa de consistência <small class="muted">(últimos 84 dias)</small></h2>
+          <div class="heatmap-scroll"><div id="heatmap" class="heatmap" role="img" aria-label="Mapa dos últimos 84 dias"></div></div>
+          <p class="muted small">Verde: 80% ou mais · Roxo: 50 a 79% · Vermelho: abaixo de 50% · Cinza: sem avaliação</p>
+        </section>
         <section class="panel">
           <h2><span class="accent">▥</span> Histórico — <span id="statistics-period">Hoje</span></h2>
           <div class="chart-wrap chart-tall"><canvas id="history-chart" aria-label="Histórico de desempenho"></canvas></div>
@@ -183,10 +228,45 @@
           <p class="muted">Transforme metas grandes em pequenas ações acompanháveis.</p>
           <form id="goal-form" class="goal-form">
             <label class="sr-only" for="goal-name">Novo objetivo</label>
-            <input id="goal-name" class="field" maxlength="120" placeholder="Ex.: Estudar 30 minutos por dia" required>
-            <button class="button primary" type="submit">Adicionar</button>
+            <input id="goal-name" class="field" maxlength="120" placeholder="Ex.: Treinar 4 vezes por semana" required>
+            <div class="goal-options">
+              <label class="sr-only" for="goal-target">Meta de sucessos (opcional)</label>
+              <input id="goal-target" class="field" type="number" min="1" max="999" inputmode="numeric" placeholder="Meta (nº de sucessos)">
+              <label class="sr-only" for="goal-period">Período da meta</label>
+              <select id="goal-period" class="field">
+                <option value="week">por semana</option>
+                <option value="month">por mês</option>
+              </select>
+              <label class="sr-only" for="goal-category">Categoria da meta</label>
+              <select id="goal-category" class="field"></select>
+            </div>
+            <button id="goal-submit" class="button primary" type="submit">Adicionar</button>
+            <button id="goal-cancel" class="button secondary" type="button" hidden>Cancelar edição</button>
           </form>
+          <p class="muted small">Dica: preencha a <strong>meta</strong> para o FOCUS contar seus sucessos automaticamente e mostrar o progresso. Sem meta, vira um objetivo simples de marcar como concluído.</p>
           <div id="goal-list" class="history-list"></div>
+        </section>
+        <section class="panel spaced-panel">
+          <h2><span class="accent">↻</span> Tarefas recorrentes</h2>
+          <p class="muted">Elas aparecem sozinhas como pendentes nos dias escolhidos.</p>
+          <form id="recurring-form" class="recurring-form">
+            <label class="sr-only" for="recurring-name">Nome da tarefa recorrente</label>
+            <input id="recurring-name" class="field" maxlength="100" placeholder="Ex.: Treino" required>
+            <label class="sr-only" for="recurring-category">Categoria</label>
+            <select id="recurring-category" class="field"></select>
+            <fieldset class="day-picker">
+              <legend class="sr-only">Dias da semana</legend>
+              <label class="day-check"><input type="checkbox" value="0">Dom</label>
+              <label class="day-check"><input type="checkbox" value="1">Seg</label>
+              <label class="day-check"><input type="checkbox" value="2">Ter</label>
+              <label class="day-check"><input type="checkbox" value="3">Qua</label>
+              <label class="day-check"><input type="checkbox" value="4">Qui</label>
+              <label class="day-check"><input type="checkbox" value="5">Sex</label>
+              <label class="day-check"><input type="checkbox" value="6">Sáb</label>
+            </fieldset>
+            <button class="button primary" type="submit">Adicionar recorrência</button>
+          </form>
+          <div id="recurring-list" class="history-list"></div>
         </section>
       </section>
 
@@ -202,6 +282,10 @@
       <select id="edit-category" class="field"></select>
       <label class="edit-label" for="edit-description">Descrição</label>
       <textarea id="edit-description" class="field" maxlength="500" rows="4" placeholder="Como foi? O que aprendeu?"></textarea>
+      <div id="edit-reason-group" class="edit-reason-group" hidden>
+        <label class="edit-label" for="edit-reason">Motivo da falha (opcional)</label>
+        <select id="edit-reason" class="field"></select>
+      </div>
       <div class="edit-actions">
         <button id="edit-cancel" class="button secondary" type="button">Cancelar</button>
         <button class="button primary" type="submit">Salvar</button>
