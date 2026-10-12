@@ -24,6 +24,7 @@
   }
   let selectedPeriod = "day";
   let selectedDate = todayKey();
+  let editingId = null;
   let activityChart = null;
   let historyChart = null;
   let toastTimer = null;
@@ -322,12 +323,63 @@
     });
     if (isHistory) historyChart = chart; else activityChart = chart;
   }
+  function calculateStreaks() {
+    const today = todayKey();
+    const days = Array.from(new Set(store.tasks.filter((task) => task.status !== "pending" && task.date <= today).map((task) => task.date))).sort();
+    const daySet = new Set(days);
+    let cursor = daySet.has(today) ? today : shiftDate(today, -1);
+    let current = 0;
+    while (daySet.has(cursor)) { current += 1; cursor = shiftDate(cursor, -1); }
+    let best = 0;
+    let run = 0;
+    let previous = null;
+    days.forEach((day) => {
+      run = previous && shiftDate(previous, 1) === day ? run + 1 : 1;
+      best = Math.max(best, run);
+      previous = day;
+    });
+    return { current, best, todayDone: daySet.has(today) };
+  }
+  function weekRate(counts) {
+    const evaluated = counts.success + counts.failure;
+    return evaluated ? Math.round(counts.success / evaluated * 100) : null;
+  }
+  function renderConsistency() {
+    const streak = calculateStreaks();
+    $("streak-current").textContent = streak.current;
+    $("streak-best").textContent = streak.best;
+    $("streak-note").textContent = streak.current === 0
+      ? "Sem sequência ativa. Avalie ao menos uma tarefa hoje para começar uma."
+      : streak.todayDone ? "Hoje já conta! Volte amanhã para continuar a sequência." : "Avalie uma tarefa hoje para manter sua sequência.";
+    const today = todayKey();
+    const inRange = (from, to) => store.tasks.filter((task) => task.date >= from && task.date <= to);
+    const now = countStatuses(inRange(shiftDate(today, -6), today));
+    const before = countStatuses(inRange(shiftDate(today, -13), shiftDate(today, -7)));
+    const nowRate = weekRate(now);
+    const beforeRate = weekRate(before);
+    $("week-now-rate").textContent = nowRate === null ? "—" : `${nowRate}%`;
+    $("week-prev-rate").textContent = beforeRate === null ? "—" : `${beforeRate}%`;
+    $("week-now-detail").textContent = `${now.success} sucesso(s) · ${now.failure} falha(s)`;
+    $("week-prev-detail").textContent = `${before.success} sucesso(s) · ${before.failure} falha(s)`;
+    let note;
+    if (nowRate === null || beforeRate === null) {
+      note = "Faltam tarefas avaliadas em uma das semanas para comparar.";
+    } else if (nowRate > beforeRate) {
+      note = `Você subiu ${nowRate - beforeRate} pontos percentuais em relação aos 7 dias anteriores. Bom ritmo!`;
+    } else if (nowRate < beforeRate) {
+      note = `A taxa caiu ${beforeRate - nowRate} pontos percentuais. Oscilar é normal: veja o que mudou e ajuste um detalhe.`;
+    } else {
+      note = "Sua taxa ficou igual à dos 7 dias anteriores. Consistência também é resultado.";
+    }
+    $("week-compare-note").textContent = note;
+  }
   function renderStatistics() {
     const counts = countStatuses(store.tasks);
     const evaluated = counts.success + counts.failure;
     $("total-success").textContent = counts.success;
     $("total-failure").textContent = counts.failure;
     $("total-rate").textContent = evaluated ? `${Math.round(counts.success / evaluated * 100)}%` : "—";
+    renderConsistency();
     $("statistics-period").textContent = { day: "Hoje", week: "Últimos 7 dias", month: "Este mês" }[selectedPeriod];
     const tasks = getPeriodTasks();
     $("history-list").innerHTML = tasks.length ? tasks.slice().reverse().slice(0, 30).map((task) => `
@@ -362,14 +414,25 @@
   function editTask(id) {
     const task = store.tasks.find((item) => item.id === id);
     if (!task) return;
-    const name = prompt("Nome da atividade:", task.name);
-    if (name === null) return;
-    if (!name.trim()) { showToast("O nome não pode ficar vazio."); return; }
-    const description = prompt("Descrição da atividade:", task.description || "");
-    if (description === null) return;
-    task.name = name.trim().slice(0, 100);
-    task.description = description.trim().slice(0, 500);
-    save(); renderAll(); showToast("Atividade atualizada.");
+    editingId = id;
+    const select = $("edit-category");
+    select.innerHTML = $("task-category").innerHTML;
+    if (!Array.from(select.options).some((option) => option.value === task.category)) {
+      const extra = document.createElement("option");
+      extra.textContent = task.category;
+      select.appendChild(extra);
+    }
+    select.value = task.category;
+    $("edit-name").value = task.name;
+    $("edit-description").value = task.description || "";
+    const dialog = $("edit-dialog");
+    if (typeof dialog.showModal === "function") dialog.showModal(); else dialog.setAttribute("open", "");
+    $("edit-name").focus();
+  }
+  function closeEditDialog() {
+    const dialog = $("edit-dialog");
+    if (typeof dialog.close === "function") dialog.close(); else dialog.removeAttribute("open");
+    editingId = null;
   }
   function deleteTask(id) {
     const task = store.tasks.find((item) => item.id === id);
@@ -410,6 +473,25 @@
     renderAll();
     showToast(`${copies.length} tarefa(s) copiada(s) como pendentes.`);
   }
+  $("edit-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const task = store.tasks.find((item) => item.id === editingId);
+    if (!task) { closeEditDialog(); return; }
+    const name = $("edit-name").value.trim();
+    if (!name) return;
+    task.name = name.slice(0, 100);
+    task.category = $("edit-category").value;
+    task.description = $("edit-description").value.trim().slice(0, 500);
+    save();
+    closeEditDialog();
+    renderAll();
+    showToast("Atividade atualizada.");
+  });
+  $("edit-cancel").addEventListener("click", closeEditDialog);
+  $("edit-dialog").addEventListener("close", () => { editingId = null; });
+  $("edit-dialog").addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) closeEditDialog();
+  });
   $("day-prev").addEventListener("click", () => changeDay(-1));
   $("day-next").addEventListener("click", () => changeDay(1));
   $("day-today").addEventListener("click", () => { selectedDate = todayKey(); renderTasks(); });
