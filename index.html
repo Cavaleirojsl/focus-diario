@@ -125,6 +125,21 @@
         <section class="panel">
           <h2><span class="accent">☑</span> Todas as tarefas</h2>
           <p class="muted">Toque no status para alternar entre sucesso, falha e pendente.</p>
+          <div class="filter-bar">
+            <label class="sr-only" for="filter-text">Buscar tarefas</label>
+            <input id="filter-text" class="field" type="search" placeholder="Buscar por nome, descrição ou categoria">
+            <label class="sr-only" for="filter-status">Filtrar por status</label>
+            <select id="filter-status" class="field">
+              <option value="">Todos os status</option>
+              <option value="success">Sucesso</option>
+              <option value="failure">Falha</option>
+              <option value="pending">Pendente</option>
+            </select>
+            <label class="sr-only" for="filter-category">Filtrar por categoria</label>
+            <select id="filter-category" class="field"></select>
+            <button id="filter-clear" class="mini-button" type="button">Limpar filtros</button>
+          </div>
+          <p id="filter-count" class="muted small" role="status"></p>
           <div id="all-task-list" class="task-list"></div>
         </section>
       </section>
