@@ -23,6 +23,7 @@
     console.warn("Não foi possível ler os dados guardados.", error);
   }
   let selectedPeriod = "day";
+  let selectedDate = todayKey();
   let activityChart = null;
   let historyChart = null;
   let toastTimer = null;
@@ -143,8 +144,22 @@
     };
     reader.readAsText(file);
   }
-  function getTodayTasks() {
-    return store.tasks.filter((task) => task.date === todayKey());
+  function toKey(date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  }
+  function shiftDate(key, days) {
+    const date = new Date(`${key}T12:00:00`);
+    date.setDate(date.getDate() + days);
+    return toKey(date);
+  }
+  function selectedDayName() {
+    const today = todayKey();
+    if (selectedDate === today) return "hoje";
+    if (selectedDate === shiftDate(today, -1)) return "ontem";
+    return new Date(`${selectedDate}T12:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }).replace(".", "");
+  }
+  function getSelectedDayTasks() {
+    return store.tasks.filter((task) => task.date === selectedDate);
   }
   function periodStart() {
     const date = new Date();
@@ -184,10 +199,15 @@
       </article>`;
   }
   function renderTasks() {
-    const today = getTodayTasks();
+    const today = getSelectedDayTasks();
+    const isToday = selectedDate === todayKey();
+    $("task-heading").textContent = `Minhas tarefas de ${selectedDayName()}`;
+    $("day-label").textContent = new Date(`${selectedDate}T12:00:00`).toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" }).replace(/\./g, "");
+    $("day-next").disabled = isToday;
+    $("day-today").disabled = isToday;
     $("task-list").innerHTML = today.length
       ? today.slice().reverse().map(taskMarkup).join("")
-      : '<div class="empty">Nenhuma atividade registrada hoje. Adicione sua primeira tarefa acima ✦</div>';
+      : `<div class="empty">${isToday ? "Nenhuma atividade registrada hoje. Adicione sua primeira tarefa acima ✦" : "Nenhuma atividade registrada neste dia. Você pode adicionar tarefas acima ou copiar as do dia anterior."}</div>`;
     $("task-count").textContent = `${today.filter((task) => task.status !== "pending").length} de ${today.length} avaliadas`;
     $("all-task-list").innerHTML = store.tasks.length
       ? store.tasks.slice().reverse().map(taskMarkup).join("")
@@ -358,6 +378,43 @@
     save(); renderAll(); showToast("Atividade excluída.");
   }
 
+  function changeDay(days) {
+    const next = shiftDate(selectedDate, days);
+    if (next > todayKey()) return;
+    selectedDate = next;
+    renderTasks();
+  }
+  function copyPreviousDay() {
+    const source = store.tasks.filter((task) => task.date === shiftDate(selectedDate, -1));
+    if (!source.length) { showToast("Não há tarefas no dia anterior para copiar."); return; }
+    const normalize = (task) => `${task.name.trim().toLowerCase()}|${task.category}`;
+    const existing = new Set(getSelectedDayTasks().map(normalize));
+    const copies = [];
+    source.forEach((task) => {
+      const key = normalize(task);
+      if (existing.has(key)) return;
+      existing.add(key);
+      copies.push({
+        id: newId(),
+        name: task.name,
+        category: task.category,
+        description: "",
+        status: "pending",
+        date: selectedDate,
+        time: selectedDate === todayKey() ? new Date().toTimeString().slice(0, 5) : ""
+      });
+    });
+    if (!copies.length) { showToast("Essas tarefas já estão neste dia."); return; }
+    store.tasks.push(...copies);
+    if (!save()) { store.tasks = store.tasks.slice(0, store.tasks.length - copies.length); return; }
+    renderAll();
+    showToast(`${copies.length} tarefa(s) copiada(s) como pendentes.`);
+  }
+  $("day-prev").addEventListener("click", () => changeDay(-1));
+  $("day-next").addEventListener("click", () => changeDay(1));
+  $("day-today").addEventListener("click", () => { selectedDate = todayKey(); renderTasks(); });
+  $("day-repeat").addEventListener("click", copyPreviousDay);
+
   $("task-form").addEventListener("submit", (event) => {
     event.preventDefault();
     const name = $("task-name").value.trim();
@@ -369,8 +426,8 @@
       category: $("task-category").value,
       description: $("task-description").value.trim().slice(0, 500),
       status: "pending",
-      date: todayKey(),
-      time: now.toTimeString().slice(0, 5)
+      date: selectedDate,
+      time: selectedDate === todayKey() ? now.toTimeString().slice(0, 5) : ""
     });
     save(); $("task-form").reset(); renderAll(); showToast("Atividade adicionada!");
   });
