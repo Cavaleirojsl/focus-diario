@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080914">
+  <meta name="description" content="FOCUS — Diário de evolução pessoal, tarefas e desempenho.">
+  <title>FOCUS — Diário de Evolução</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="js/app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#inicio" aria-label="FOCUS início">
+        <span class="brand-mark">✦</span>
+        <span><strong>FOCUS</strong><small>Disciplina hoje, resultados amanhã.</small></span>
+      </a>
+      <nav class="nav" aria-label="Navegação principal">
+        <button class="nav-link active" data-page="inicio">⌂ <span>Início</span></button>
+        <button class="nav-link" data-page="tarefas">☑ <span>Minhas tarefas</span></button>
+        <button class="nav-link" data-page="estatisticas">▥ <span>Estatísticas</span></button>
+        <button class="nav-link" data-page="objetivos">◎ <span>Objetivos</span></button>
+      </nav>
+      <p class="sidebar-quote">“Você não precisa ser o melhor do mundo, só melhor que ontem.”</p>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">SEU DIÁRIO DE EVOLUÇÃO</p>
+          <h1 id="greeting">Vamos evoluir hoje.</h1>
+          <p id="current-date" class="muted"></p>
+        </div>
+        <div class="period-switch" role="group" aria-label="Período das estatísticas">
+          <button class="period-btn active" data-period="day">Hoje</button>
+          <button class="period-btn" data-period="week">Semana</button>
+          <button class="period-btn" data-period="month">Mês</button>
+        </div>
+      </header>
+
+      <section class="page active" id="page-inicio">
+        <div class="dashboard-grid">
+          <div class="main-column">
+            <section class="panel">
+              <h2><span class="accent">＋</span> Adicionar nova tarefa</h2>
+              <form id="task-form" class="task-form">
+                <label class="sr-only" for="task-name">Nome da atividade</label>
+                <input id="task-name" class="field" maxlength="100" placeholder="Nome da atividade (ex.: Treino)" required>
+                <label class="sr-only" for="task-category">Categoria</label>
+                <select id="task-category" class="field">
+                  <option>Saúde / Fitness</option><option>Estudos</option><option>Trabalho</option>
+                  <option>Tecnologia</option><option>Projeto</option><option>Pessoal</option><option>Lazer</option><option>Outro</option>
+                </select>
+                <label class="sr-only" for="task-description">Descrição</label>
+                <textarea id="task-description" class="field description-field" maxlength="500" rows="2" placeholder="Descrição opcional: como foi? O que aprendeu?"></textarea>
+                <button class="button primary" type="submit">＋ Adicionar tarefa</button>
+              </form>
+            </section>
+
+            <section class="panel task-panel">
+              <div class="section-heading">
+                <h2><span class="accent">☷</span> <span id="task-heading">Minhas tarefas de hoje</span></h2>
+                <span id="task-count" class="muted small"></span>
+              </div>
+              <div id="task-list" class="task-list"></div>
+            </section>
+          </div>
+
+          <div class="side-column">
+            <section class="panel">
+              <h2><span class="accent">▷</span> Resumo do período</h2>
+              <div class="summary-layout">
+                <div class="donut-wrap">
+                  <div class="donut" id="donut">
+                    <div><strong id="completed-count">0/0</strong><small>avaliadas</small></div>
+                  </div>
+                </div>
+                <div class="legend">
+                  <p><span><i class="dot success-dot"></i>Sucessos</span><strong class="success-text" id="success-count">0</strong></p>
+                  <p><span><i class="dot failure-dot"></i>Falhas</span><strong class="failure-text" id="failure-count">0</strong></p>
+                  <p><span>Taxa de sucesso</span><strong id="success-rate">—</strong></p>
+                </div>
+              </div>
+              <div class="message-box">
+                <strong id="message-title">Um passo de cada vez ✦</strong>
+                <p id="message-text">Adicione uma atividade e registre como foi. O importante é acompanhar sua evolução.</p>
+              </div>
+            </section>
+            <section class="panel">
+              <h2><span class="accent">▥</span> Desempenho por categoria</h2>
+              <div id="category-bars" class="category-bars"></div>
+            </section>
+          </div>
+        </div>
+
+        <div class="lower-grid">
+          <section class="panel">
+            <h2><span class="accent">⌁</span> Gráfico de atividades</h2>
+            <div class="chart-wrap"><canvas id="activity-chart" aria-label="Gráfico de sucessos e falhas"></canvas></div>
+            <p class="muted small chart-caption">Compare seus sucessos e falhas no período escolhido.</p>
+          </section>
+          <section class="panel">
+            <h2><span class="accent">✧</span> Reflexão pessoal</h2>
+            <p class="reflection-copy">Use as descrições para observar padrões: o que ajudou, o que atrapalhou e qual será seu próximo passo.</p>
+            <button id="export-button" class="button secondary" type="button">⇩ Exportar meus dados (.json)</button>
+          </section>
+        </div>
+      </section>
+
+      <section class="page" id="page-tarefas">
+        <section class="panel">
+          <h2><span class="accent">☑</span> Todas as tarefas</h2>
+          <p class="muted">Toque no status para alternar entre sucesso, falha e pendente.</p>
+          <div id="all-task-list" class="task-list"></div>
+        </section>
+      </section>
+
+      <section class="page" id="page-estatisticas">
+        <div class="stat-cards">
+          <article class="stat-card"><strong id="total-success">0</strong><span>Sucessos registrados</span></article>
+          <article class="stat-card"><strong id="total-failure">0</strong><span>Falhas registradas</span></article>
+          <article class="stat-card"><strong id="total-rate">—</strong><span>Taxa geral de sucesso</span></article>
+        </div>
+        <section class="panel">
+          <h2><span class="accent">▥</span> Histórico — <span id="statistics-period">Hoje</span></h2>
+          <div class="chart-wrap chart-tall"><canvas id="history-chart" aria-label="Histórico de desempenho"></canvas></div>
+        </section>
+        <section class="panel spaced-panel">
+          <h2><span class="accent">☷</span> Registros recentes</h2>
+          <div id="history-list" class="history-list"></div>
+        </section>
+      </section>
+
+      <section class="page" id="page-objetivos">
+        <section class="panel">
+          <h2><span class="accent">◎</span> Objetivos pessoais</h2>
+          <p class="muted">Transforme metas grandes em pequenas ações acompanháveis.</p>
+          <form id="goal-form" class="goal-form">
+            <label class="sr-only" for="goal-name">Novo objetivo</label>
+            <input id="goal-name" class="field" maxlength="120" placeholder="Ex.: Estudar 30 minutos por dia" required>
+            <button class="button primary" type="submit">Adicionar</button>
+          </form>
+          <div id="goal-list" class="history-list"></div>
+        </section>
+      </section>
+
+      <footer class="footer">FOCUS · Seu progresso é construído um dia de cada vez.</footer>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>
