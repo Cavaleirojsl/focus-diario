@@ -135,6 +135,23 @@
           <article class="stat-card"><strong id="total-failure">0</strong><span>Falhas registradas</span></article>
           <article class="stat-card"><strong id="total-rate">—</strong><span>Taxa geral de sucesso</span></article>
         </div>
+        <section class="panel consistency-panel">
+          <h2><span class="accent">✦</span> Consistência</h2>
+          <div class="stat-cards streak-cards">
+            <article class="stat-card"><strong id="streak-current">0</strong><span>Dias seguidos (atual)</span></article>
+            <article class="stat-card"><strong id="streak-best">0</strong><span>Melhor sequência</span></article>
+          </div>
+          <p id="streak-note" class="muted small"></p>
+          <p class="muted small">Um dia conta quando você avalia pelo menos uma tarefa (sucesso ou falha).</p>
+        </section>
+        <section class="panel week-compare">
+          <h2><span class="accent">⇄</span> Semana atual vs. anterior</h2>
+          <div class="compare-grid">
+            <div class="compare-col"><span class="muted small">Últimos 7 dias</span><strong id="week-now-rate">—</strong><small id="week-now-detail"></small></div>
+            <div class="compare-col"><span class="muted small">7 dias antes</span><strong id="week-prev-rate">—</strong><small id="week-prev-detail"></small></div>
+          </div>
+          <p id="week-compare-note" class="muted small"></p>
+        </section>
         <section class="panel">
           <h2><span class="accent">▥</span> Histórico — <span id="statistics-period">Hoje</span></h2>
           <div class="chart-wrap chart-tall"><canvas id="history-chart" aria-label="Histórico de desempenho"></canvas></div>
@@ -161,7 +178,21 @@
       <footer class="footer">FOCUS · Seu progresso é construído um dia de cada vez.</footer>
     </main>
   </div>
+  <dialog id="edit-dialog" class="edit-dialog" aria-labelledby="edit-title">
+    <form id="edit-form" class="edit-form">
+      <h2 id="edit-title">Editar atividade</h2>
+      <label class="edit-label" for="edit-name">Nome</label>
+      <input id="edit-name" class="field" maxlength="100" required pattern=".*\S.*" title="O nome não pode ficar vazio">
+      <label class="edit-label" for="edit-category">Categoria</label>
+      <select id="edit-category" class="field"></select>
+      <label class="edit-label" for="edit-description">Descrição</label>
+      <textarea id="edit-description" class="field" maxlength="500" rows="4" placeholder="Como foi? O que aprendeu?"></textarea>
+      <div class="edit-actions">
+        <button id="edit-cancel" class="button secondary" type="button">Cancelar</button>
+        <button class="button primary" type="submit">Salvar</button>
+      </div>
+    </form>
+  </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 </body>
 </html>
-
