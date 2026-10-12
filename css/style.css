@@ -141,4 +141,7 @@ p { margin-top: 0; }
   .description-field, .task-form .primary { grid-column: 1; }
   .goal-form { flex-direction: column; }
   .category-row { grid-template-columns: 82px minmax(20px, 1fr) 32px; }
+  .backup-actions { display: grid; gap: 8px; }
+.backup-note { margin: 10px 0 0; }
+.backup-note.warn { color: #ffc857; }
 }
