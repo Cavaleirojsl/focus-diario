@@ -1,4 +1,4 @@
-<!doctype html>
+!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
@@ -7,7 +7,7 @@
   <meta name="description" content="FOCUS — Diário de evolução pessoal, tarefas e desempenho.">
   <title>FOCUS — Diário de Evolução</title>
   <link rel="stylesheet" href="css/style.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.js"></script>
   <script src="js/app.js" defer></script>
 </head>
 <body>
@@ -104,7 +104,12 @@
           <section class="panel">
             <h2><span class="accent">✧</span> Reflexão pessoal</h2>
             <p class="reflection-copy">Use as descrições para observar padrões: o que ajudou, o que atrapalhou e qual será seu próximo passo.</p>
-            <button id="export-button" class="button secondary" type="button">⇩ Exportar meus dados (.json)</button>
+            <div class="backup-actions">
+              <button id="export-button" class="button secondary" type="button">⇩ Exportar meus dados (.json)</button>
+              <button id="import-button" class="button secondary" type="button">⇧ Importar backup (.json)</button>
+              <input id="import-file" type="file" accept="application/json,.json" hidden>
+            </div>
+            <p id="backup-note" class="muted small backup-note" role="status"></p>
           </section>
         </div>
       </section>
@@ -152,3 +157,4 @@
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 </body>
 </html>
+
