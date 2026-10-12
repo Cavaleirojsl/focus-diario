@@ -199,6 +199,28 @@
         </div>
       </article>`;
   }
+  const normalizeText = (value) => String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  function renderAllTasks() {
+    const categorySelect = $("filter-category");
+    const chosen = categorySelect.value;
+    const categories = Array.from(new Set(
+      Array.from($("task-category").options).map((option) => option.value).concat(store.tasks.map((task) => task.category))
+    )).sort((a, b) => a.localeCompare(b, "pt-BR"));
+    categorySelect.replaceChildren(new Option("Todas as categorias", ""), ...categories.map((name) => new Option(name, name)));
+    categorySelect.value = categories.includes(chosen) ? chosen : "";
+    const text = normalizeText($("filter-text").value.trim());
+    const status = $("filter-status").value;
+    const category = categorySelect.value;
+    const filtered = store.tasks.filter((task) => {
+      if (status && task.status !== status) return false;
+      if (category && task.category !== category) return false;
+      return !text || normalizeText(`${task.name} ${task.description} ${task.category}`).includes(text);
+    });
+    $("filter-count").textContent = store.tasks.length ? `Mostrando ${filtered.length} de ${store.tasks.length} tarefa(s).` : "";
+    $("all-task-list").innerHTML = filtered.length
+      ? filtered.slice().reverse().map(taskMarkup).join("")
+      : `<div class="empty">${store.tasks.length ? "Nenhuma tarefa encontrada com esses filtros." : "Ainda não há tarefas registradas."}</div>`;
+  }
   function renderTasks() {
     const today = getSelectedDayTasks();
     const isToday = selectedDate === todayKey();
@@ -210,9 +232,7 @@
       ? today.slice().reverse().map(taskMarkup).join("")
       : `<div class="empty">${isToday ? "Nenhuma atividade registrada hoje. Adicione sua primeira tarefa acima ✦" : "Nenhuma atividade registrada neste dia. Você pode adicionar tarefas acima ou copiar as do dia anterior."}</div>`;
     $("task-count").textContent = `${today.filter((task) => task.status !== "pending").length} de ${today.length} avaliadas`;
-    $("all-task-list").innerHTML = store.tasks.length
-      ? store.tasks.slice().reverse().map(taskMarkup).join("")
-      : '<div class="empty">Ainda não há tarefas registradas.</div>';
+    renderAllTasks();
   }
   function renderSummary() {
     const tasks = getPeriodTasks();
@@ -491,6 +511,15 @@
   $("edit-dialog").addEventListener("close", () => { editingId = null; });
   $("edit-dialog").addEventListener("click", (event) => {
     if (event.target === event.currentTarget) closeEditDialog();
+  });
+  $("filter-text").addEventListener("input", renderAllTasks);
+  $("filter-status").addEventListener("change", renderAllTasks);
+  $("filter-category").addEventListener("change", renderAllTasks);
+  $("filter-clear").addEventListener("click", () => {
+    $("filter-text").value = "";
+    $("filter-status").value = "";
+    $("filter-category").value = "";
+    renderAllTasks();
   });
   $("day-prev").addEventListener("click", () => changeDay(-1));
   $("day-next").addEventListener("click", () => changeDay(1));
