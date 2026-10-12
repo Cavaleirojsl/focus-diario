@@ -155,4 +155,12 @@ p { margin-top: 0; }
 .edit-label { margin-top: 4px; color: var(--muted); font-size: 12px; font-weight: 700; }
 .edit-form textarea.field { resize: vertical; min-height: 90px; }
 .edit-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  .consistency-panel, .week-compare { margin-bottom: 14px; }
+.consistency-panel h2, .week-compare h2 { margin-top: 0; }
+.streak-cards { grid-template-columns: 1fr 1fr; margin-bottom: 10px; }
+.streak-cards .stat-card:last-child { grid-column: auto; }
+.compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.compare-col { padding: 13px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-deep); }
+.compare-col strong { display: block; color: var(--cyan); font-size: 27px; }
+.compare-col small { color: var(--muted); }
 }
