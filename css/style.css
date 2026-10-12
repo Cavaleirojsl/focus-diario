@@ -144,4 +144,8 @@ p { margin-top: 0; }
   .backup-actions { display: grid; gap: 8px; }
 .backup-note { margin: 10px 0 0; }
 .backup-note.warn { color: #ffc857; }
+.day-nav { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.day-nav .mini-button { min-width: 38px; padding: 8px 10px; }
+.day-nav .mini-button:disabled { opacity: .4; cursor: not-allowed; }
+.day-label { flex: 1 1 90px; text-align: center; font-size: 13px; font-weight: 700; text-transform: capitalize; }
 }
