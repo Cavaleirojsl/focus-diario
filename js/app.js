@@ -4,6 +4,7 @@
   "use strict";
   const $ = (id) => document.getElementById(id);
   const STORAGE_KEY = "focus-diario-v1";
+  const BACKUP_KEY = "focus-diario-ultimo-backup";
   const todayKey = () => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -41,6 +42,106 @@
     toast.hidden = false;
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => { toast.hidden = true; }, 2600);
+  }
+  function getLastBackup() {
+    try {
+      const value = Number(localStorage.getItem(BACKUP_KEY));
+      return value > 0 ? value : null;
+    } catch (error) {
+      return null;
+    }
+  }
+  function renderBackupNote() {
+    const note = $("backup-note");
+    if (!note) return;
+    const last = getLastBackup();
+    const days = last ? Math.floor((Date.now() - last) / 86400000) : null;
+    const needsBackup = store.tasks.length > 0 && (last === null || days >= 7);
+    note.classList.toggle("warn", needsBackup);
+    if (last === null) {
+      note.textContent = store.tasks.length
+        ? "Você ainda não fez backup. Exporte seus dados para não perdê-los."
+        : "Nenhum backup feito ainda.";
+    } else if (days === 0) {
+      note.textContent = "Último backup: hoje.";
+    } else {
+      note.textContent = `Último backup: há ${days} dia(s).${needsBackup ? " Hora de exportar de novo." : ""}`;
+    }
+  }
+  const VALID_STATUS = ["pending", "success", "failure"];
+  const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+  const TIME_PATTERN = /^\d{2}:\d{2}$/;
+  const newId = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
+  function cleanTask(raw) {
+    if (!raw || typeof raw !== "object") return null;
+    const name = typeof raw.name === "string" ? raw.name.trim().slice(0, 100) : "";
+    if (!name || typeof raw.date !== "string" || !DATE_PATTERN.test(raw.date)) return null;
+    return {
+      id: typeof raw.id === "string" && raw.id ? raw.id : newId(),
+      name,
+      category: typeof raw.category === "string" && raw.category.trim() ? raw.category.trim().slice(0, 50) : "Outro",
+      description: typeof raw.description === "string" ? raw.description.trim().slice(0, 500) : "",
+      status: VALID_STATUS.includes(raw.status) ? raw.status : "pending",
+      date: raw.date,
+      time: typeof raw.time === "string" && TIME_PATTERN.test(raw.time) ? raw.time : ""
+    };
+  }
+  function cleanGoal(raw) {
+    if (!raw || typeof raw !== "object") return null;
+    const name = typeof raw.name === "string" ? raw.name.trim().slice(0, 120) : "";
+    if (!name) return null;
+    return {
+      id: typeof raw.id === "string" && raw.id ? raw.id : newId(),
+      name,
+      done: raw.done === true
+    };
+  }
+  function importData(file) {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { showToast("Arquivo grande demais para ser um backup do FOCUS."); return; }
+    const reader = new FileReader();
+    reader.onerror = () => showToast("Não foi possível ler o arquivo.");
+    reader.onload = () => {
+      let data;
+      try {
+        data = JSON.parse(reader.result);
+      } catch (error) {
+        showToast("Arquivo inválido: não é um JSON.");
+        return;
+      }
+      if (!data || (!Array.isArray(data.tasks) && !Array.isArray(data.goals))) {
+        showToast("Esse arquivo não parece um backup do FOCUS.");
+        return;
+      }
+      const knownTasks = new Set(store.tasks.map((task) => task.id));
+      const knownGoals = new Set(store.goals.map((goal) => goal.id));
+      const newTasks = [];
+      (Array.isArray(data.tasks) ? data.tasks : []).forEach((raw) => {
+        const task = cleanTask(raw);
+        if (task && !knownTasks.has(task.id)) { knownTasks.add(task.id); newTasks.push(task); }
+      });
+      const newGoals = [];
+      (Array.isArray(data.goals) ? data.goals : []).forEach((raw) => {
+        const goal = cleanGoal(raw);
+        if (goal && !knownGoals.has(goal.id)) { knownGoals.add(goal.id); newGoals.push(goal); }
+      });
+      if (!newTasks.length && !newGoals.length) {
+        showToast("Nada novo para importar: esses dados já estão aqui.");
+        return;
+      }
+      if (!confirm(`Importar ${newTasks.length} tarefa(s) e ${newGoals.length} objetivo(s) novos? Seus dados atuais serão mantidos.`)) return;
+      const previous = { tasks: store.tasks, goals: store.goals };
+      store.tasks = store.tasks.concat(newTasks).sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+      store.goals = store.goals.concat(newGoals);
+      if (!save()) {
+        store.tasks = previous.tasks;
+        store.goals = previous.goals;
+        return;
+      }
+      renderAll();
+      showToast(`Importado: ${newTasks.length} tarefa(s) e ${newGoals.length} objetivo(s).`);
+    };
+    reader.readAsText(file);
   }
   function getTodayTasks() {
     return store.tasks.filter((task) => task.date === todayKey());
@@ -228,6 +329,7 @@
     renderSummary();
     renderStatistics();
     renderGoals();
+    renderBackupNote();
     requestAnimationFrame(() => renderChart("activity-chart", getPeriodTasks()));
   }
   function updateTaskStatus(id) {
@@ -322,7 +424,14 @@
     const link = document.createElement("a");
     link.href = url; link.download = "focus-backup.json"; link.click();
     URL.revokeObjectURL(url);
+    try { localStorage.setItem(BACKUP_KEY, String(Date.now())); } catch (error) { /* sem espaço: ignora */ }
+    renderBackupNote();
     showToast("Exportação iniciada.");
+  });
+  $("import-button").addEventListener("click", () => $("import-file").click());
+  $("import-file").addEventListener("change", (event) => {
+    importData(event.target.files[0]);
+    event.target.value = "";
   });
 
   const now = new Date();
