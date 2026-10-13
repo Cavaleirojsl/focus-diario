@@ -29,6 +29,9 @@
   let selectedDate = todayKey();
   let editingId = null;
   let editingGoalId = null;
+  let editingRecurringId = null;
+  let calendarMonth = todayKey().slice(0, 7);
+  let calendarDay = todayKey();
   let notesRange = 7;
   let activityChart = null;
   let historyChart = null;
@@ -87,6 +90,9 @@
     }
   }
   const VALID_STATUS = ["pending", "success", "failure"];
+  const PRIORITIES = ["high", "normal", "low"];
+  const PRIORITY_WEIGHT = { high: 0, normal: 1, low: 2 };
+  const priorityOf = (task) => (PRIORITIES.includes(task.priority) ? task.priority : "normal");
   const FAILURE_REASONS = ["Falta de tempo", "Cansaço", "Esqueci", "Falta de motivação", "Imprevisto", "Tarefa difícil", "Outro"];
   const WEEKDAY_NAMES = ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado"];
   const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -104,6 +110,7 @@
       description: typeof raw.description === "string" ? raw.description.trim().slice(0, 500) : "",
       status,
       failureReason: status === "failure" && typeof raw.failureReason === "string" ? raw.failureReason.trim().slice(0, 40) : "",
+      priority: PRIORITIES.includes(raw.priority) ? raw.priority : "normal",
       date: raw.date,
       time: typeof raw.time === "string" && TIME_PATTERN.test(raw.time) ? raw.time : ""
     };
@@ -135,6 +142,7 @@
       name,
       category: typeof raw.category === "string" && raw.category.trim() ? raw.category.trim().slice(0, 50) : "Outro",
       days,
+      priority: PRIORITIES.includes(raw.priority) ? raw.priority : "normal",
       startDate: typeof raw.startDate === "string" && DATE_PATTERN.test(raw.startDate) ? raw.startDate : todayKey(),
       lastRun: typeof raw.lastRun === "string" && DATE_PATTERN.test(raw.lastRun) ? raw.lastRun : ""
     };
@@ -255,7 +263,7 @@
       <article class="task">
         <div class="task-icon" aria-hidden="true">${icon}</div>
         <div class="task-main">
-          <div class="task-meta"><span class="task-title">${escapeHTML(task.name)}</span><span class="tag">${escapeHTML(task.category)}</span></div>
+          <div class="task-meta"><span class="task-title">${escapeHTML(task.name)}</span><span class="tag">${escapeHTML(task.category)}</span>${priorityOf(task) === "high" ? '<span class="tag tag-high">Prioridade alta</span>' : priorityOf(task) === "low" ? '<span class="tag tag-low">Baixa</span>' : ""}</div>
           <p class="task-description">${escapeHTML(task.description || "Sem descrição adicionada.")}</p>
           ${task.status === "failure" && task.failureReason ? `<small class="failure-reason">Motivo: ${escapeHTML(task.failureReason)}</small>` : ""}
           <small class="muted">${dateLabel(task.date)}${task.time ? ` · ${escapeHTML(task.time)}` : ""}</small>
@@ -297,7 +305,7 @@
     $("day-next").disabled = isToday;
     $("day-today").disabled = isToday;
     $("task-list").innerHTML = today.length
-      ? today.slice().reverse().map(taskMarkup).join("")
+      ? today.slice().reverse().sort((a, b) => PRIORITY_WEIGHT[priorityOf(a)] - PRIORITY_WEIGHT[priorityOf(b)]).map(taskMarkup).join("")
       : `<div class="empty">${isToday ? "Nenhuma atividade registrada hoje. Adicione sua primeira tarefa acima ✦" : "Nenhuma atividade registrada neste dia. Você pode adicionar tarefas acima ou copiar as do dia anterior."}</div>`;
     $("task-count").textContent = `${today.filter((task) => task.status !== "pending").length} de ${today.length} avaliadas`;
     renderAllTasks();
@@ -548,6 +556,7 @@
     renderLevelInsights();
     renderDiary();
     renderWeeklyReview();
+    renderProgress();
     $("statistics-period").textContent = { day: "Hoje", week: "Últimos 7 dias", month: "Este mês" }[selectedPeriod];
     const tasks = getPeriodTasks();
     $("history-list").innerHTML = tasks.length ? tasks.slice().reverse().slice(0, 30).map((task) => `
@@ -611,7 +620,7 @@
         const weekday = new Date(`${day}T12:00:00`).getDay();
         const exists = store.tasks.some((task) => task.date === day && task.name === rule.name && task.category === rule.category);
         if (rule.days.includes(weekday) && !exists) {
-          store.tasks.push({ id: newId(), name: rule.name, category: rule.category, description: "", status: "pending", failureReason: "", date: day, time: "" });
+          store.tasks.push({ id: newId(), name: rule.name, category: rule.category, description: "", status: "pending", failureReason: "", priority: PRIORITIES.includes(rule.priority) ? rule.priority : "normal", date: day, time: "" });
           added = true;
         }
         day = shiftDate(day, 1);
@@ -627,12 +636,13 @@
     if (!select.options.length) {
       select.replaceChildren(...Array.from($("task-category").options).map((option) => new Option(option.value, option.value)));
     }
+    const priorityText = { high: " · Prioridade alta", low: " · Prioridade baixa", normal: "" };
     $("recurring-list").innerHTML = store.recurring.length ? store.recurring.map((rule) => {
       const label = rule.days.length === 7 ? "Todos os dias" : rule.days.slice().sort((a, b) => a - b).map((day) => WEEKDAY_SHORT[day]).join(", ");
       return `
       <div class="history-row">
-        <div><strong>${escapeHTML(rule.name)}</strong><br><small class="muted">${escapeHTML(rule.category)} · ${label}</small></div>
-        <button class="mini-button" type="button" data-recurring-delete="${escapeHTML(rule.id)}">Excluir</button>
+        <div><strong>${escapeHTML(rule.name)}</strong><br><small class="muted">${escapeHTML(rule.category)} · ${label}${priorityText[PRIORITIES.includes(rule.priority) ? rule.priority : "normal"]}</small></div>
+        <div class="goal-actions"><button class="mini-button" type="button" data-recurring-edit="${escapeHTML(rule.id)}">Editar</button><button class="mini-button" type="button" data-recurring-delete="${escapeHTML(rule.id)}">Excluir</button></div>
       </div>`;
     }).join("") : '<div class="empty">Nenhuma tarefa recorrente ainda. Crie uma para não precisar repetir o que você faz sempre.</div>';
   }
@@ -801,6 +811,302 @@
     document.querySelectorAll("[data-theme]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.theme === key)));
     return key;
   }
+  const monthLabel = (ym) => new Date(`${ym}-01T12:00:00`).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  function shiftMonth(ym, delta) {
+    const [year, month] = ym.split("-").map(Number);
+    const date = new Date(year, month - 1 + delta, 1);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  }
+  function renderCalendarDetail() {
+    const day = calendarDay;
+    $("calendar-detail-title").textContent = new Date(`${day}T12:00:00`).toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
+    const entry = store.moods[day] || {};
+    const validLevel = (value) => Number.isInteger(value) && value >= 1 && value <= 5;
+    const parts = [];
+    if (validLevel(entry.mood)) parts.push(`${MOOD_EMOJI[entry.mood - 1]} humor ${entry.mood}/5`);
+    if (validLevel(entry.energy)) parts.push(`⚡ energia ${entry.energy}/5`);
+    $("calendar-detail-meta").textContent = parts.join(" · ") || "Sem check-in de humor e energia neste dia.";
+    const tasks = store.tasks.filter((task) => task.date === day);
+    $("calendar-detail-tasks").innerHTML = tasks.length ? tasks.map((task) => `
+      <div class="history-row">
+        <div class="diary-info"><strong>${escapeHTML(task.name)}</strong><small class="muted">${escapeHTML(task.category)}${task.status === "failure" && task.failureReason ? ` · Motivo: ${escapeHTML(task.failureReason)}` : ""}</small></div>
+        <span class="cal-status cal-status-${escapeHTML(task.status)}">${statusLabel(task.status)}</span>
+      </div>`).join("") : '<div class="empty">Nenhuma tarefa neste dia.</div>';
+    $("calendar-detail-note").textContent = typeof store.notes[day] === "string" ? store.notes[day] : "";
+  }
+  function renderCalendar() {
+    const today = todayKey();
+    const currentMonth = today.slice(0, 7);
+    if (calendarMonth > currentMonth) calendarMonth = currentMonth;
+    if (!calendarDay.startsWith(calendarMonth)) calendarDay = calendarMonth === currentMonth ? today : `${calendarMonth}-01`;
+    if (calendarDay > today) calendarDay = today;
+    $("calendar-label").textContent = monthLabel(calendarMonth);
+    $("calendar-next").disabled = calendarMonth >= currentMonth;
+    const [year, month] = calendarMonth.split("-").map(Number);
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const lead = new Date(year, month - 1, 1).getDay();
+    const byDate = {};
+    store.tasks.forEach((task) => {
+      if (task.status === "pending" || !task.date.startsWith(calendarMonth)) return;
+      const item = byDate[task.date] || (byDate[task.date] = { success: 0, failure: 0 });
+      item[task.status] += 1;
+    });
+    const cells = Array.from({ length: lead }, () => '<span class="cal-empty"></span>');
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      const key = `${calendarMonth}-${String(day).padStart(2, "0")}`;
+      const item = byDate[key];
+      const total = item ? item.success + item.failure : 0;
+      const rate = total ? item.success / total * 100 : null;
+      const level = rate === null ? "none" : rate >= 80 ? "high" : rate >= 50 ? "mid" : "low";
+      const hasNote = Boolean(store.notes[key]);
+      const label = `${dateLabel(key)}: ${total ? `${item.success} sucesso(s), ${item.failure} falha(s)` : "sem avaliação"}${hasNote ? ", com nota" : ""}`;
+      cells.push(`<button type="button" class="cal-cell cal-${level}${key === calendarDay ? " selected" : ""}${key === today ? " today" : ""}" data-cal-day="${key}" aria-label="${label}"${key > today ? " disabled" : ""}>${day}${hasNote ? '<i class="cal-dot" aria-hidden="true"></i>' : ""}</button>`);
+    }
+    $("calendar-grid").innerHTML = cells.join("");
+    renderCalendarDetail();
+  }
+  const ACHIEVEMENTS = [
+    { name: "Primeiro passo", hint: "Avalie sua 1ª tarefa", goal: 1, value: (p) => p.success + p.failure },
+    { name: "Em ritmo", hint: "3 dias seguidos", goal: 3, value: (p) => p.best },
+    { name: "Semana de ferro", hint: "7 dias seguidos", goal: 7, value: (p) => p.best },
+    { name: "Mês constante", hint: "30 dias seguidos", goal: 30, value: (p) => p.best },
+    { name: "10 sucessos", hint: "Some 10 sucessos", goal: 10, value: (p) => p.success },
+    { name: "50 sucessos", hint: "Some 50 sucessos", goal: 50, value: (p) => p.success },
+    { name: "100 sucessos", hint: "Some 100 sucessos", goal: 100, value: (p) => p.success },
+    { name: "Autoconhecimento", hint: "Escreva 5 notas", goal: 5, value: (p) => p.notes },
+    { name: "Check-in em dia", hint: "7 check-ins de humor/energia", goal: 7, value: (p) => p.checkins },
+    { name: "Aprendendo com falhas", hint: "Anote o motivo de 5 falhas", goal: 5, value: (p) => p.reasons },
+    { name: "Rotina automática", hint: "Crie uma tarefa recorrente", goal: 1, value: (p) => p.recurring }
+  ];
+  function xpBetween(from, to) {
+    let xp = 0;
+    store.tasks.forEach((task) => {
+      if (task.status === "pending" || task.date < from || task.date > to) return;
+      xp += task.status === "success" ? 10 : 3;
+    });
+    Object.entries(store.notes).forEach(([date, text]) => {
+      if (date >= from && date <= to && typeof text === "string" && text.trim()) xp += 2;
+    });
+    Object.entries(store.moods).forEach(([date, entry]) => {
+      if (date >= from && date <= to && entry && (Number.isInteger(entry.mood) || Number.isInteger(entry.energy))) xp += 2;
+    });
+    return xp;
+  }
+  const XP_GOAL_KEY = "focus-diario-meta-xp";
+  let xpGoal = 100;
+  try {
+    const savedGoal = Number(localStorage.getItem(XP_GOAL_KEY));
+    if (Number.isInteger(savedGoal) && savedGoal >= 10 && savedGoal <= 2000) xpGoal = savedGoal;
+  } catch (error) { /* usa o padrão */ }
+  const ACH_KEY = "focus-diario-conquistas";
+  let unlocked = null;
+  try {
+    const rawUnlocked = localStorage.getItem(ACH_KEY);
+    if (rawUnlocked !== null) {
+      const parsedUnlocked = JSON.parse(rawUnlocked);
+      unlocked = Array.isArray(parsedUnlocked) ? parsedUnlocked.filter((name) => typeof name === "string") : [];
+    }
+  } catch (error) { unlocked = null; }
+  function checkAchievements() {
+    const progress = computeProgress();
+    const done = ACHIEVEMENTS.filter((item) => item.value(progress) >= item.goal).map((item) => item.name);
+    const isFirstRun = unlocked === null;
+    const fresh = isFirstRun ? [] : done.filter((name) => !unlocked.includes(name));
+    if (!isFirstRun && !fresh.length) return;
+    unlocked = isFirstRun ? done : unlocked.concat(fresh);
+    try { localStorage.setItem(ACH_KEY, JSON.stringify(unlocked)); } catch (error) { /* ignora */ }
+    if (fresh.length) setTimeout(() => showToast(`🏆 Conquista desbloqueada: ${fresh.join(", ")}`), 2800);
+  }
+  const REASON_TIPS = {
+    "Falta de tempo": "Experimente uma versão menor da tarefa, de 5 a 10 minutos.",
+    "Cansaço": "Deixe as tarefas importantes para o horário em que você tem mais energia.",
+    "Esqueci": "Use uma tarefa recorrente e ative o lembrete diário.",
+    "Falta de motivação": "Divida a tarefa em passos pequenos e comece só pelo primeiro.",
+    "Imprevisto": "Deixe uma folga na agenda para o inesperado.",
+    "Tarefa difícil": "Quebre a tarefa em partes e comemore cada parte concluída."
+  };
+  function buildTips() {
+    const today = todayKey();
+    const tips = [];
+    const pending = store.tasks.filter((task) => task.date === today && task.status === "pending").length;
+    const streak = calculateStreaks();
+    if (pending) tips.push(`Você tem ${pending} tarefa(s) pendente(s) hoje. Avalie assim que terminar cada uma.`);
+    if (streak.current > 0 && !streak.todayDone) tips.push(`Sua sequência de ${streak.current} dia(s) continua se você avaliar uma tarefa hoje.`);
+    const weekXp = xpBetween(shiftDate(today, -6), today);
+    if (weekXp >= xpGoal) tips.push("Meta de XP da semana batida! Mantenha o ritmo sem se cobrar demais.");
+    else if (xpGoal - weekXp <= 30) tips.push(`Faltam só ${xpGoal - weekXp} XP para a meta da semana.`);
+    const recent = store.tasks.filter((task) => task.date >= shiftDate(today, -29) && task.date <= today);
+    const reasons = {};
+    recent.forEach((task) => { if (task.status === "failure" && task.failureReason) reasons[task.failureReason] = (reasons[task.failureReason] || 0) + 1; });
+    const topReason = Object.entries(reasons).sort((a, b) => b[1] - a[1])[0];
+    if (topReason && topReason[1] >= 2) tips.push(`Seu motivo de falha mais comum é "${topReason[0]}" (${topReason[1]}x). ${REASON_TIPS[topReason[0]] || "Tente ajustar a tarefa para ficar mais fácil de cumprir."}`);
+    const byCategory = {};
+    recent.forEach((task) => {
+      if (task.status === "pending") return;
+      const item = byCategory[task.category] || (byCategory[task.category] = { success: 0, total: 0 });
+      item.total += 1;
+      if (task.status === "success") item.success += 1;
+    });
+    const weakest = Object.entries(byCategory).filter(([, item]) => item.total >= 3)
+      .map(([name, item]) => ({ name, rate: Math.round(item.success / item.total * 100) })).sort((a, b) => a.rate - b.rate)[0];
+    if (weakest && weakest.rate < 50) tips.push(`${weakest.name} está com ${weakest.rate}% de sucesso nos últimos 30 dias. Tente uma versão menor dessas tarefas.`);
+    if (!reminder.enabled && store.tasks.length >= 3) tips.push("Ative o lembrete diário em Objetivos para não esquecer de avaliar suas tarefas.");
+    if (!tips.length) tips.push(store.tasks.length ? "Tudo em dia! Escreva uma nota hoje: ela ajuda a descobrir padrões depois." : "Comece adicionando uma tarefa pequena para hoje.");
+    return tips.slice(0, 3);
+  }
+  function renderTips() {
+    $("tips-list").replaceChildren(...buildTips().map((text) => {
+      const item = document.createElement("li");
+      item.textContent = text;
+      return item;
+    }));
+  }
+  function computeProgress() {
+    const evaluated = store.tasks.filter((task) => task.status !== "pending" && task.date <= todayKey());
+    const success = evaluated.filter((task) => task.status === "success").length;
+    const failure = evaluated.length - success;
+    const notes = Object.values(store.notes).filter((text) => typeof text === "string" && text.trim()).length;
+    const checkins = Object.values(store.moods).filter((entry) => entry && (Number.isInteger(entry.mood) || Number.isInteger(entry.energy))).length;
+    const reasons = store.tasks.filter((task) => task.status === "failure" && task.failureReason).length;
+    const xp = xpBetween("0000-01-01", todayKey());
+    let level = 1;
+    while (xp >= 50 * level * level) level += 1;
+    const floor = 50 * (level - 1) * (level - 1);
+    const next = 50 * level * level;
+    return { success, failure, notes, checkins, reasons, recurring: store.recurring.length, best: calculateStreaks().best, xp, level, next, percent: Math.round((xp - floor) / (next - floor) * 100) };
+  }
+  function renderProgress() {
+    const progress = computeProgress();
+    $("xp-summary").textContent = `Nível ${progress.level} · ${progress.xp} XP · faltam ${progress.next - progress.xp} para o nível ${progress.level + 1}`;
+    const bar = $("xp-bar");
+    bar.style.width = `${Math.min(100, Math.max(0, progress.percent))}%`;
+    bar.style.background = "linear-gradient(90deg, var(--purple), var(--cyan))";
+    const today = todayKey();
+    const weekXp = xpBetween(shiftDate(today, -6), today);
+    $("xp-week-summary").textContent = `XP nos últimos 7 dias: ${weekXp} de ${xpGoal}${weekXp >= xpGoal ? " ✓ meta batida" : ""}`;
+    const weekBar = $("xp-week-bar");
+    weekBar.style.width = `${Math.min(100, Math.round(weekXp / xpGoal * 100))}%`;
+    weekBar.style.background = weekXp >= xpGoal ? "var(--green)" : "var(--cyan)";
+    if (document.activeElement !== $("xp-goal")) $("xp-goal").value = xpGoal;
+    $("achievements").innerHTML = ACHIEVEMENTS.map((item) => {
+      const value = item.value(progress);
+      const done = value >= item.goal;
+      return `<li class="achievement${done ? " done" : ""}"><strong>${done ? "★ " : ""}${item.name}</strong><small>${done ? "Conquistada" : `${value}/${item.goal} · ${item.hint}`}</small></li>`;
+    }).join("");
+  }
+  function reportData() {
+    const range = $("report-range").value;
+    const today = todayKey();
+    const from = range === "all" ? "0000-01-01" : shiftDate(today, -(Number(range) - 1));
+    const tasks = store.tasks.filter((task) => task.date >= from && task.date <= today).sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+    return { from, today, tasks, label: range === "all" ? "Todo o histórico" : `Últimos ${range} dias` };
+  }
+  function downloadFile(name, content, type) {
+    const url = URL.createObjectURL(new Blob([content], { type }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  function csvCell(value) {
+    let text = String(value ?? "");
+    if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  function buildCsv() {
+    const { tasks } = reportData();
+    const rows = [["Data", "Hora", "Atividade", "Categoria", "Prioridade", "Status", "Motivo da falha", "Descrição"]].concat(tasks.map((task) => [
+      task.date, task.time || "", task.name, task.category, { high: "Alta", normal: "Normal", low: "Baixa" }[priorityOf(task)], statusLabel(task.status), task.failureReason || "", task.description || ""
+    ]));
+    return `\ufeff${rows.map((row) => row.map(csvCell).join(",")).join("\r\n")}`;
+  }
+  function buildReportHtml() {
+    const { from, today, tasks, label } = reportData();
+    const counts = countStatuses(tasks);
+    const evaluated = counts.success + counts.failure;
+    const rate = weekRate(counts);
+    const byCategory = {};
+    tasks.forEach((task) => {
+      if (task.status === "pending") return;
+      const item = byCategory[task.category] || (byCategory[task.category] = { success: 0, failure: 0 });
+      item[task.status] += 1;
+    });
+    const categoryRows = Object.entries(byCategory).map(([name, item]) => `<tr><td>${escapeHTML(name)}</td><td>${item.success}</td><td>${item.failure}</td><td>${Math.round(item.success / (item.success + item.failure) * 100)}%</td></tr>`).join("");
+    const reasons = {};
+    tasks.forEach((task) => { if (task.status === "failure" && task.failureReason) reasons[task.failureReason] = (reasons[task.failureReason] || 0) + 1; });
+    const reasonRows = Object.entries(reasons).sort((a, b) => b[1] - a[1]).map(([name, count]) => `<li>${escapeHTML(name)}: ${count}x</li>`).join("");
+    const noteRows = Object.keys(store.notes).filter((date) => date >= from && date <= today && typeof store.notes[date] === "string").sort().reverse()
+      .map((date) => `<p><strong>${escapeHTML(date)}</strong><br>${escapeHTML(store.notes[date])}</p>`).join("");
+    const taskRows = tasks.map((task) => `<tr><td>${escapeHTML(task.date)}</td><td>${escapeHTML(task.name)}</td><td>${escapeHTML(task.category)}</td><td>${escapeHTML(statusLabel(task.status))}</td><td>${escapeHTML(task.failureReason || "")}</td></tr>`).join("");
+    return `<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FOCUS — Relatório</title>
+<style>body{font-family:system-ui,sans-serif;max-width:820px;margin:24px auto;padding:0 16px;color:#1b1b2f;line-height:1.5}h1{margin-bottom:0}h2{margin-top:28px;border-bottom:2px solid #9b4dff;padding-bottom:4px}table{width:100%;border-collapse:collapse;font-size:14px}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}th{background:#f0e9ff}.muted{color:#666}.big{font-size:32px;font-weight:700}</style></head>
+<body><h1>FOCUS — Relatório</h1><p class="muted">${escapeHTML(label)} · gerado em ${escapeHTML(today)}</p>
+<h2>Resumo</h2><p class="big">${rate === null ? "—" : `${rate}%`} de sucesso</p>
+<p>${evaluated} tarefa(s) avaliada(s): ${counts.success} sucesso(s) e ${counts.failure} falha(s). Pendentes: ${tasks.length - evaluated}.</p>
+${categoryRows ? `<h2>Por categoria</h2><table><tr><th>Categoria</th><th>Sucessos</th><th>Falhas</th><th>Taxa</th></tr>${categoryRows}</table>` : ""}
+${reasonRows ? `<h2>Motivos das falhas</h2><ul>${reasonRows}</ul>` : ""}
+${noteRows ? `<h2>Notas</h2>${noteRows}` : ""}
+<h2>Tarefas</h2>${taskRows ? `<table><tr><th>Data</th><th>Atividade</th><th>Categoria</th><th>Status</th><th>Motivo</th></tr>${taskRows}</table>` : "<p>Nenhuma tarefa no período.</p>"}
+</body></html>`;
+  }
+  const REMINDER_KEY = "focus-diario-lembrete";
+  let reminder = { enabled: false, time: "20:00", lastDate: "" };
+  try {
+    const saved = JSON.parse(localStorage.getItem(REMINDER_KEY) || "{}");
+    if (saved && typeof saved === "object") {
+      reminder = { enabled: saved.enabled === true, time: TIME_PATTERN.test(saved.time) ? saved.time : "20:00", lastDate: DATE_PATTERN.test(saved.lastDate) ? saved.lastDate : "" };
+    }
+  } catch (error) { /* usa o padrão */ }
+  function saveReminder() {
+    try { localStorage.setItem(REMINDER_KEY, JSON.stringify(reminder)); } catch (error) { /* sem espaço: ignora */ }
+  }
+  const clockNow = () => {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  };
+  function renderReminder() {
+    $("reminder-enabled").checked = reminder.enabled;
+    $("reminder-time").value = reminder.time;
+    let note = "Lembrete desligado.";
+    if (reminder.enabled) {
+      note = `Lembrete ativo todos os dias às ${reminder.time}.`;
+      if (!("Notification" in window)) note += " Este navegador não mostra notificações: o aviso aparece só dentro do app.";
+      else if (Notification.permission === "denied") note += " Notificações bloqueadas: o aviso aparece só dentro do app.";
+      else if (Notification.permission === "default") note += " Permita as notificações quando o navegador perguntar.";
+    }
+    $("reminder-note").textContent = note;
+  }
+  function checkReminder() {
+    if (!reminder.enabled) return;
+    const today = todayKey();
+    if (reminder.lastDate === today || clockNow() < reminder.time) return;
+    reminder.lastDate = today;
+    saveReminder();
+    const pending = store.tasks.filter((task) => task.date === today && task.status === "pending").length;
+    const body = pending ? `Você tem ${pending} tarefa(s) pendente(s) hoje. Que tal avaliar?` : "Que tal registrar como foi o seu dia?";
+    if ("Notification" in window && Notification.permission === "granted" && navigator.serviceWorker) {
+      navigator.serviceWorker.getRegistration()
+        .then((registration) => registration.showNotification("FOCUS", { body, icon: "icon-192.png", tag: "focus-lembrete" }))
+        .catch(() => showToast(body));
+    } else {
+      showToast(body);
+    }
+  }
+  function updateReminderFromForm() {
+    reminder.enabled = $("reminder-enabled").checked;
+    reminder.time = TIME_PATTERN.test($("reminder-time").value) ? $("reminder-time").value : "20:00";
+    reminder.lastDate = clockNow() >= reminder.time ? todayKey() : "";
+    saveReminder();
+    if (reminder.enabled && "Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission().then(renderReminder).catch(renderReminder);
+    }
+    renderReminder();
+  }
   function renderAll() {
     applyRecurring();
     renderTasks();
@@ -808,6 +1114,9 @@
     renderStatistics();
     renderGoals();
     renderRecurring();
+    renderCalendar();
+    renderTips();
+    checkAchievements();
     renderBackupNote();
     requestAnimationFrame(() => renderChart("activity-chart", getPeriodTasks()));
   }
@@ -837,6 +1146,7 @@
     select.value = task.category;
     $("edit-name").value = task.name;
     $("edit-description").value = task.description || "";
+    $("edit-priority").value = priorityOf(task);
     $("edit-reason-group").hidden = task.status !== "failure";
     const reasonSelect = $("edit-reason");
     reasonSelect.replaceChildren(new Option("Sem motivo anotado", ""), ...FAILURE_REASONS.map((reason) => new Option(reason, reason)));
@@ -883,6 +1193,7 @@
         id: newId(),
         name: task.name,
         category: task.category,
+        priority: priorityOf(task),
         description: "",
         status: "pending",
         date: selectedDate,
@@ -903,6 +1214,7 @@
     if (!name) return;
     task.name = name.slice(0, 100);
     task.category = $("edit-category").value;
+    task.priority = PRIORITIES.includes($("edit-priority").value) ? $("edit-priority").value : "normal";
     task.description = $("edit-description").value.trim().slice(0, 500);
     task.failureReason = task.status === "failure" ? $("edit-reason").value : "";
     save();
@@ -938,6 +1250,7 @@
       id: (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`),
       name: name.slice(0, 100),
       category: $("task-category").value,
+      priority: PRIORITIES.includes($("task-priority").value) ? $("task-priority").value : "normal",
       description: $("task-description").value.trim().slice(0, 500),
       status: "pending",
       date: selectedDate,
@@ -968,6 +1281,7 @@
       document.querySelectorAll("[data-page]").forEach((item) => item.classList.toggle("active", item === button));
       document.querySelectorAll(".page").forEach((section) => section.classList.toggle("active", section.id === `page-${target}`));
       if (target === "estatisticas") renderStatistics();
+      if (target === "calendario") renderCalendar();
     });
   });
   function resetGoalForm() {
@@ -993,24 +1307,53 @@
     $("goal-form").scrollIntoView({ behavior: "smooth", block: "center" });
   }
   $("goal-cancel").addEventListener("click", resetGoalForm);
+  function resetRecurringForm() {
+    editingRecurringId = null;
+    $("recurring-name").value = "";
+    $("recurring-priority").value = "normal";
+    document.querySelectorAll("#recurring-form .day-picker input").forEach((input) => { input.checked = false; });
+    $("recurring-submit").textContent = "Adicionar recorrência";
+    $("recurring-cancel").hidden = true;
+  }
+  function startRecurringEdit(id) {
+    const rule = store.recurring.find((item) => item.id === id);
+    if (!rule) return;
+    editingRecurringId = id;
+    $("recurring-name").value = rule.name;
+    $("recurring-category").value = rule.category;
+    $("recurring-priority").value = PRIORITIES.includes(rule.priority) ? rule.priority : "normal";
+    document.querySelectorAll("#recurring-form .day-picker input").forEach((input) => { input.checked = rule.days.includes(Number(input.value)); });
+    $("recurring-submit").textContent = "Salvar alterações";
+    $("recurring-cancel").hidden = false;
+    $("recurring-name").focus();
+    $("recurring-form").scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+  $("recurring-cancel").addEventListener("click", resetRecurringForm);
   $("recurring-form").addEventListener("submit", (event) => {
     event.preventDefault();
     const name = $("recurring-name").value.trim();
     if (!name) return;
     const days = Array.from(document.querySelectorAll("#recurring-form .day-picker input:checked")).map((input) => Number(input.value));
     if (!days.length) { showToast("Escolha pelo menos um dia da semana."); return; }
-    store.recurring.push({ id: newId(), name: name.slice(0, 100), category: $("recurring-category").value, days, startDate: todayKey(), lastRun: "" });
-    $("recurring-name").value = "";
-    document.querySelectorAll("#recurring-form .day-picker input").forEach((input) => { input.checked = false; });
-    save(); renderAll();
-    showToast("Recorrência criada. As tarefas aparecem sozinhas nos dias escolhidos.");
+    const editing = editingRecurringId ? store.recurring.find((item) => item.id === editingRecurringId) : null;
+    const rule = editing || { id: newId(), startDate: todayKey(), lastRun: "" };
+    rule.name = name.slice(0, 100);
+    rule.category = $("recurring-category").value;
+    rule.days = days;
+    rule.priority = PRIORITIES.includes($("recurring-priority").value) ? $("recurring-priority").value : "normal";
+    if (!editing) store.recurring.push(rule);
+    save(); resetRecurringForm(); renderAll();
+    showToast(editing ? "Recorrência atualizada. Vale para as próximas tarefas geradas." : "Recorrência criada. As tarefas aparecem sozinhas nos dias escolhidos.");
   });
   $("recurring-list").addEventListener("click", (event) => {
+    const editButton = event.target.closest("[data-recurring-edit]");
+    if (editButton) { startRecurringEdit(editButton.dataset.recurringEdit); return; }
     const button = event.target.closest("[data-recurring-delete]");
     if (!button) return;
     const index = store.recurring.findIndex((rule) => rule.id === button.dataset.recurringDelete);
     if (index === -1) return;
     const [removed] = store.recurring.splice(index, 1);
+    if (editingRecurringId === removed.id) resetRecurringForm();
     save(); renderRecurring();
     showToast("Recorrência removida. As tarefas já criadas continuam.", { label: "Desfazer", onClick: () => {
       if (store.recurring.some((rule) => rule.id === removed.id)) return;
@@ -1154,6 +1497,46 @@
   let savedTheme = "neon";
   try { savedTheme = localStorage.getItem(THEME_KEY) || "neon"; } catch (error) { /* usa o padrão */ }
   applyTheme(savedTheme);
+  $("calendar-prev").addEventListener("click", () => { calendarMonth = shiftMonth(calendarMonth, -1); renderCalendar(); });
+  $("calendar-next").addEventListener("click", () => { calendarMonth = shiftMonth(calendarMonth, 1); renderCalendar(); });
+  $("calendar-grid").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-cal-day]");
+    if (!button || !DATE_PATTERN.test(button.dataset.calDay)) return;
+    calendarDay = button.dataset.calDay;
+    renderCalendar();
+  });
+  $("calendar-open").addEventListener("click", () => {
+    selectedDate = calendarDay;
+    renderTasks();
+    document.querySelector('[data-page="inicio"]').click();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+  $("report-html").addEventListener("click", () => {
+    downloadFile(`focus-relatorio-${todayKey()}.html`, buildReportHtml(), "text/html");
+    showToast("Relatório gerado.");
+  });
+  $("report-csv").addEventListener("click", () => {
+    downloadFile(`focus-tarefas-${todayKey()}.csv`, buildCsv(), "text/csv");
+    showToast("Planilha gerada.");
+  });
+  $("xp-goal").addEventListener("change", () => {
+    const value = Number($("xp-goal").value);
+    if (!Number.isInteger(value) || value < 10 || value > 2000) {
+      showToast("A meta semanal precisa ficar entre 10 e 2000 XP.");
+      $("xp-goal").value = xpGoal;
+      return;
+    }
+    xpGoal = value;
+    try { localStorage.setItem(XP_GOAL_KEY, String(xpGoal)); } catch (error) { /* ignora */ }
+    renderProgress();
+    renderTips();
+  });
+  $("reminder-enabled").addEventListener("change", updateReminderFromForm);
+  $("reminder-time").addEventListener("change", updateReminderFromForm);
+  renderReminder();
+  setInterval(checkReminder, 30000);
+  document.addEventListener("visibilitychange", checkReminder);
+  checkReminder();
   let installPrompt = null;
   window.addEventListener("beforeinstallprompt", (event) => {
     event.preventDefault();
