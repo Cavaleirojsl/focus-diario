@@ -228,4 +228,33 @@ p { margin-top: 0; }
 .theme-swatch[data-theme="oceano"] span { background: linear-gradient(135deg, #4d8dff, #28e7d5); }
 .theme-swatch[data-theme="sunset"] span { background: linear-gradient(135deg, #ff8a3d, #ff5fa2); }
 .theme-swatch[data-theme="rosa"] span { background: linear-gradient(135deg, #ff4fd8, #28e7d5); }
+  .calendar-weekdays, .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.calendar-weekdays { margin: 12px 0 6px; color: var(--muted); font-size: 11px; font-weight: 700; text-align: center; }
+.cal-cell { position: relative; aspect-ratio: 1; min-height: 38px; border: 1px solid #2a2750; border-radius: 10px; color: var(--text); background: #1a1c35; font-size: 14px; font-weight: 700; }
+.cal-cell:disabled { opacity: .3; cursor: not-allowed; }
+.cal-low { background: #ff426d55; border-color: #ff426d99; }
+.cal-mid { background: #9b4dff55; border-color: #9b4dffaa; }
+.cal-high { background: #24e6a055; border-color: #24e6a0aa; }
+.cal-cell.today { box-shadow: 0 0 0 1px var(--cyan) inset; }
+.cal-cell.selected { outline: 2px solid var(--cyan); outline-offset: 1px; }
+.cal-dot { position: absolute; right: 5px; bottom: 5px; width: 6px; height: 6px; border-radius: 50%; background: var(--cyan); }
+.cal-status { font-size: 12px; font-weight: 700; }
+.cal-status-success { color: var(--green); }
+.cal-status-failure { color: var(--red); }
+.cal-status-pending { color: var(--muted); }
+#calendar-open { margin-top: 12px; }
+.xp-panel, .report-panel { margin-bottom: 14px; }
+.xp-panel h2, .report-panel h2 { margin-top: 0; }
+.xp-summary { margin: 8px 0; font-size: 17px; font-weight: 800; }
+.achievements { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 14px 0 0; padding: 0; list-style: none; }
+.achievement { display: grid; gap: 3px; padding: 10px; border: 1px solid #2a2750; border-radius: 10px; background: #090b19; opacity: .6; }
+.achievement.done { opacity: 1; border-color: var(--green); box-shadow: 0 0 10px #24e6a033; }
+.achievement small { color: var(--muted); font-size: 11px; }
+.tag-high { border-color: var(--red); color: #ff9ab0; }
+.tag-low { border-color: #4a5078; color: var(--muted); }
+.priority-field { grid-column: 1 / -1; }
+.reminder-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 10px 0 6px; }
+.reminder-toggle { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.reminder-toggle input { accent-color: var(--purple); }
+.reminder-row .field { width: auto; }
 }
