@@ -29,6 +29,7 @@
   let selectedDate = todayKey();
   let editingId = null;
   let editingGoalId = null;
+  let notesRange = 7;
   let activityChart = null;
   let historyChart = null;
   let toastTimer = null;
@@ -301,6 +302,7 @@
     $("task-count").textContent = `${today.filter((task) => task.status !== "pending").length} de ${today.length} avaliadas`;
     renderAllTasks();
     renderCheckin();
+    renderFocusTasks();
   }
   function renderSummary() {
     const tasks = getPeriodTasks();
@@ -544,6 +546,8 @@
     renderConsistency();
     renderInsights();
     renderLevelInsights();
+    renderDiary();
+    renderWeeklyReview();
     $("statistics-period").textContent = { day: "Hoje", week: "Últimos 7 dias", month: "Este mês" }[selectedPeriod];
     const tasks = getPeriodTasks();
     $("history-list").innerHTML = tasks.length ? tasks.slice().reverse().slice(0, 30).map((task) => `
@@ -665,9 +669,137 @@
     const rate = (group) => Math.round(group.success / group.total * 100);
     return `Com ${noun} ${high.single} (4–5): ${rate(groups.high)}% de sucesso em ${groups.high.days} dias · com ${noun} ${low.single} (1–2): ${rate(groups.low)}% em ${groups.low.days} dias.`;
   }
+  const MOOD_EMOJI = ["😞", "😕", "😐", "🙂", "😄"];
+  function renderDiary() {
+    const today = todayKey();
+    const since = shiftDate(today, -(notesRange - 1));
+    const dates = Array.from(new Set([...Object.keys(store.notes), ...Object.keys(store.moods)]))
+      .filter((date) => DATE_PATTERN.test(date) && date >= since && date <= today)
+      .sort().reverse();
+    const validLevel = (value) => Number.isInteger(value) && value >= 1 && value <= 5;
+    $("notes-range-label").textContent = `últimos ${notesRange} dias`;
+    $("notes-range").textContent = notesRange === 7 ? "Mostrar 30 dias" : "Mostrar 7 dias";
+    $("notes-list").innerHTML = dates.length ? dates.map((date) => {
+      const entry = store.moods[date] || {};
+      const note = typeof store.notes[date] === "string" ? store.notes[date] : "";
+      const weekday = new Date(`${date}T12:00:00`).toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "");
+      const meta = [validLevel(entry.mood) ? `${MOOD_EMOJI[entry.mood - 1]} humor ${entry.mood}/5` : "", validLevel(entry.energy) ? `⚡ energia ${entry.energy}/5` : ""].filter(Boolean).join(" · ");
+      return `
+      <div class="history-row">
+        <div class="diary-info">
+          <strong>${escapeHTML(weekday)}, ${dateLabel(date)}</strong>
+          ${meta ? `<small class="muted">${meta}</small>` : ""}
+          ${note ? `<p class="diary-note">${escapeHTML(note)}</p>` : ""}
+        </div>
+        <button class="mini-button" type="button" data-note-day="${escapeHTML(date)}">Editar</button>
+      </div>`;
+    }).join("") : '<div class="empty">Nenhuma nota ou humor nesse período. Use o check-in na tela Início.</div>';
+  }
   function renderLevelInsights() {
     $("insight-mood").textContent = levelInsight("mood", "humor", { single: "alto", plural: "altos" }, { single: "baixo", plural: "baixos" });
     $("insight-energy").textContent = levelInsight("energy", "energia", { single: "alta", plural: "altas" }, { single: "baixa", plural: "baixas" });
+  }
+  function buildWeeklyReview() {
+    const today = todayKey();
+    const from = shiftDate(today, -6);
+    const week = store.tasks.filter((task) => task.date >= from && task.date <= today);
+    const counts = countStatuses(week);
+    const evaluated = counts.success + counts.failure;
+    if (!evaluated) return ["Nenhuma tarefa avaliada nos últimos 7 dias. Avalie algumas tarefas para gerar sua revisão."];
+    const previous = countStatuses(store.tasks.filter((task) => task.date >= shiftDate(today, -13) && task.date <= shiftDate(today, -7)));
+    const rate = weekRate(counts);
+    const previousRate = weekRate(previous);
+    const lines = [`${evaluated} tarefa(s) avaliada(s): ${counts.success} sucesso(s) e ${counts.failure} falha(s), taxa de ${rate}%.`];
+    if (previousRate !== null) {
+      const diff = rate - previousRate;
+      lines.push(diff > 0 ? `Você está ${diff} pontos percentuais acima dos 7 dias anteriores (${previousRate}%).`
+        : diff < 0 ? `A taxa está ${-diff} pontos percentuais abaixo dos 7 dias anteriores (${previousRate}%). Oscilar é normal.`
+        : `Taxa igual à dos 7 dias anteriores (${previousRate}%).`);
+    }
+    const byCategory = {};
+    week.forEach((task) => {
+      if (task.status === "pending") return;
+      const item = byCategory[task.category] || (byCategory[task.category] = { success: 0, total: 0 });
+      item.total += 1;
+      if (task.status === "success") item.success += 1;
+    });
+    const categories = Object.entries(byCategory)
+      .filter(([, item]) => item.total >= 2)
+      .map(([name, item]) => ({ name, total: item.total, rate: Math.round(item.success / item.total * 100) }))
+      .sort((a, b) => b.rate - a.rate || b.total - a.total);
+    if (categories.length === 1) {
+      lines.push(`Categoria principal: ${categories[0].name} (${categories[0].rate}%).`);
+    } else if (categories.length >= 2) {
+      const worst = categories[categories.length - 1];
+      lines.push(`Melhor categoria: ${categories[0].name} (${categories[0].rate}%).`);
+      if (worst.rate < categories[0].rate) lines.push(`Categoria para observar: ${worst.name} (${worst.rate}%).`);
+    }
+    const reasons = {};
+    week.forEach((task) => { if (task.status === "failure" && task.failureReason) reasons[task.failureReason] = (reasons[task.failureReason] || 0) + 1; });
+    const topReason = Object.entries(reasons).sort((a, b) => b[1] - a[1])[0];
+    if (topReason) lines.push(`Principal motivo das falhas: ${topReason[0]} (${topReason[1]}x).`);
+    const activeDays = new Set(week.filter((task) => task.status !== "pending").map((task) => task.date)).size;
+    lines.push(`Dias com tarefas avaliadas: ${activeDays} de 7 · sequência atual: ${calculateStreaks().current} dia(s).`);
+    const moods = Object.entries(store.moods).filter(([date, entry]) => date >= from && date <= today && entry && Number.isInteger(entry.mood)).map(([, entry]) => entry.mood);
+    if (moods.length) lines.push(`Humor médio: ${(moods.reduce((sum, value) => sum + value, 0) / moods.length).toFixed(1)}/5 em ${moods.length} dia(s).`);
+    const notes = Object.keys(store.notes).filter((date) => date >= from && date <= today).length;
+    if (notes) lines.push(`Notas escritas: ${notes}.`);
+    lines.push(rate >= 80 ? "Sugestão: mantenha o ritmo e proteja o que está funcionando."
+      : rate >= 50 ? "Sugestão: escolha um detalhe para ajustar na próxima semana."
+      : "Sugestão: reduza a meta da semana e comece pelo mais simples.");
+    return lines;
+  }
+  function renderWeeklyReview() {
+    $("weekly-review").replaceChildren(...buildWeeklyReview().map((text) => {
+      const item = document.createElement("li");
+      item.textContent = text;
+      return item;
+    }));
+  }
+  const focusState = { minutes: 25, remaining: 25 * 60000, end: null, timer: null };
+  const formatClock = (ms) => {
+    const seconds = Math.max(0, Math.ceil(ms / 1000));
+    return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+  };
+  function renderFocus() {
+    const left = focusState.end ? focusState.end - Date.now() : focusState.remaining;
+    $("focus-clock").textContent = formatClock(left);
+    $("focus-start").textContent = focusState.end ? "Pausar" : focusState.remaining < focusState.minutes * 60000 ? "Continuar" : "Iniciar";
+    document.title = focusState.end ? `${formatClock(left)} · FOCUS` : "FOCUS — Diário de Evolução";
+  }
+  function stopFocusTimer() {
+    clearInterval(focusState.timer);
+    focusState.timer = null;
+    focusState.end = null;
+  }
+  function resetFocus() {
+    stopFocusTimer();
+    focusState.remaining = focusState.minutes * 60000;
+    renderFocus();
+  }
+  function tickFocus() {
+    if (focusState.end - Date.now() > 0) { renderFocus(); return; }
+    const select = $("focus-task");
+    const name = select.value ? select.options[select.selectedIndex].text : "";
+    resetFocus();
+    showToast(name ? `Sessão de foco em "${name}" concluída! Faça uma pausa.` : "Sessão de foco concluída! Faça uma pausa.");
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+  }
+  function renderFocusTasks() {
+    const select = $("focus-task");
+    const chosen = select.value;
+    const pending = getSelectedDayTasks().filter((task) => task.status === "pending");
+    select.replaceChildren(new Option("Sem tarefa específica", ""), ...pending.map((task) => new Option(task.name, task.id)));
+    select.value = pending.some((task) => task.id === chosen) ? chosen : "";
+  }
+  const THEMES = { neon: ["#9b4dff", "#28e7d5"], oceano: ["#4d8dff", "#28e7d5"], sunset: ["#ff8a3d", "#ff5fa2"], rosa: ["#ff4fd8", "#28e7d5"] };
+  const THEME_KEY = "focus-diario-tema";
+  function applyTheme(name) {
+    const key = THEMES[name] ? name : "neon";
+    document.documentElement.style.setProperty("--purple", THEMES[key][0]);
+    document.documentElement.style.setProperty("--cyan", THEMES[key][1]);
+    document.querySelectorAll("[data-theme]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.theme === key)));
+    return key;
   }
   function renderAll() {
     applyRecurring();
@@ -904,10 +1036,21 @@
     const text = $("day-note").value.trim().slice(0, 1000);
     if (text) store.notes[selectedDate] = text; else delete store.notes[selectedDate];
     save();
+    renderDiary();
     if (!silent) showToast("Nota salva.");
   }
   $("day-note").addEventListener("change", () => saveNote(true));
   $("day-note-save").addEventListener("click", () => saveNote(false));
+  $("notes-range").addEventListener("click", () => { notesRange = notesRange === 7 ? 30 : 7; renderDiary(); });
+  $("notes-list").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-note-day]");
+    if (!button || !DATE_PATTERN.test(button.dataset.noteDay)) return;
+    selectedDate = button.dataset.noteDay;
+    renderTasks();
+    document.querySelector('[data-page="inicio"]').click();
+    $("day-note").scrollIntoView({ behavior: "smooth", block: "center" });
+    $("day-note").focus();
+  });
   $("goal-form").addEventListener("submit", (event) => {
     event.preventDefault();
     const name = $("goal-name").value.trim();
@@ -979,6 +1122,54 @@
     if (activityChart) activityChart.resize();
     if (historyChart) historyChart.resize();
   });
+  $("review-copy").addEventListener("click", () => {
+    const text = `Revisão dos últimos 7 dias\n${buildWeeklyReview().map((line) => `• ${line}`).join("\n")}`;
+    if (!navigator.clipboard) { showToast("Não foi possível copiar neste navegador."); return; }
+    navigator.clipboard.writeText(text).then(() => showToast("Resumo copiado.")).catch(() => showToast("Não foi possível copiar."));
+  });
+  $("focus-start").addEventListener("click", () => {
+    if (focusState.end) {
+      focusState.remaining = focusState.end - Date.now();
+      stopFocusTimer();
+    } else {
+      focusState.end = Date.now() + focusState.remaining;
+      focusState.timer = setInterval(tickFocus, 250);
+    }
+    renderFocus();
+  });
+  $("focus-reset").addEventListener("click", resetFocus);
+  document.querySelectorAll("[data-focus-minutes]").forEach((button) => {
+    button.addEventListener("click", () => {
+      focusState.minutes = Number(button.dataset.focusMinutes);
+      document.querySelectorAll("[data-focus-minutes]").forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
+      resetFocus();
+    });
+  });
+  document.querySelectorAll("[data-theme]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const key = applyTheme(button.dataset.theme);
+      try { localStorage.setItem(THEME_KEY, key); } catch (error) { /* sem espaço: ignora */ }
+    });
+  });
+  let savedTheme = "neon";
+  try { savedTheme = localStorage.getItem(THEME_KEY) || "neon"; } catch (error) { /* usa o padrão */ }
+  applyTheme(savedTheme);
+  let installPrompt = null;
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    installPrompt = event;
+    $("install-banner").hidden = false;
+  });
+  $("install-accept").addEventListener("click", async () => {
+    if (!installPrompt) return;
+    $("install-banner").hidden = true;
+    installPrompt.prompt();
+    try { await installPrompt.userChoice; } catch (error) { /* ignorado */ }
+    installPrompt = null;
+  });
+  $("install-dismiss").addEventListener("click", () => { $("install-banner").hidden = true; });
+  window.addEventListener("appinstalled", () => { $("install-banner").hidden = true; installPrompt = null; });
+  renderFocus();
   if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
     window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
   }
