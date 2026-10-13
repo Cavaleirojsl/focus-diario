@@ -203,4 +203,29 @@ p { margin-top: 0; }
 .scale button { width: 40px; height: 40px; border: 1px solid #34305c; border-radius: 10px; color: var(--text); background: #090b19; font-size: 18px; }
 .scale button:hover { border-color: var(--purple); }
 .scale button[aria-pressed="true"] { border-color: var(--cyan); background: #12324a; box-shadow: 0 0 10px #28e7d555; }
+  .notes-panel, .review-panel { margin-bottom: 14px; }
+.notes-panel h2, .review-panel h2 { margin-top: 0; }
+.diary-info { display: grid; gap: 4px; min-width: 0; flex: 1; }
+.diary-note { margin: 4px 0 0; color: var(--text); font-size: 14px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.review-list { margin: 10px 0 12px; padding-left: 18px; color: var(--muted); line-height: 1.55; }
+.review-list li { margin-bottom: 4px; }
+.install-banner { position: fixed; left: 12px; right: 12px; bottom: 14px; z-index: 60; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px 16px; border: 1px solid var(--purple); border-radius: 14px; background: var(--panel); box-shadow: 0 0 24px #9b4dff44, 0 14px 40px #000a; }
+.install-banner[hidden] { display: none; }
+.install-banner p { margin: 4px 0 0; }
+.install-actions { display: flex; align-items: center; gap: 8px; }
+.focus-body { display: grid; gap: 14px; justify-items: center; margin-top: 10px; }
+.focus-clock { font-size: 56px; font-weight: 800; letter-spacing: 2px; color: var(--cyan); font-variant-numeric: tabular-nums; text-shadow: 0 0 18px #28e7d544; }
+.focus-controls { display: grid; gap: 10px; width: min(100%, 420px); }
+.focus-durations { display: flex; gap: 6px; }
+.focus-durations .mini-button { flex: 1; }
+.focus-durations .mini-button[aria-pressed="true"] { border-color: var(--cyan); color: var(--cyan); }
+.focus-actions { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
+.theme-picker { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.theme-swatch { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid #34305c; border-radius: 10px; color: var(--text); background: #090b19; }
+.theme-swatch span { width: 18px; height: 18px; border-radius: 50%; }
+.theme-swatch[aria-pressed="true"] { border-color: var(--cyan); }
+.theme-swatch[data-theme="neon"] span { background: linear-gradient(135deg, #9b4dff, #28e7d5); }
+.theme-swatch[data-theme="oceano"] span { background: linear-gradient(135deg, #4d8dff, #28e7d5); }
+.theme-swatch[data-theme="sunset"] span { background: linear-gradient(135deg, #ff8a3d, #ff5fa2); }
+.theme-swatch[data-theme="rosa"] span { background: linear-gradient(135deg, #ff4fd8, #28e7d5); }
 }
