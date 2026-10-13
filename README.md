@@ -6,7 +6,7 @@ O **FOCUS** é um diário pessoal de atividades criado para ajudar a organizar o
 
 ## ✨ Sobre o projeto
 
-O FOCUS pretende reunir em um só lugar o registro de atividades, o histórico de resultados e indicadores de evolução. A ideia central é que produtividade não significa acertar sempre: registrar dificuldades também ajuda a ajustar o plano e continuar avançando.
+O FOCUS pretende reunir em um só lugar o registro de atividades, o histórico de resultados e indicadores de evolução. A ideia central é que produtividade não significa acertar sempre: registrar dificuldades também ajuda a ajustar o plano e continuar avançando SITE: https://cavaleirojsl.github.io/focus-diario/ .
 
 ## Recursos planejados
 
