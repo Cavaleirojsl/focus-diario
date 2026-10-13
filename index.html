@@ -146,6 +146,25 @@
             <p id="backup-note" class="muted small backup-note" role="status"></p>
           </section>
         </div>
+        <section class="panel focus-panel spaced-panel">
+          <h2><span class="accent">◔</span> Modo foco</h2>
+          <div class="focus-body">
+            <div id="focus-clock" class="focus-clock" role="timer">25:00</div>
+            <div class="focus-controls">
+              <label class="sr-only" for="focus-task">Tarefa em foco</label>
+              <select id="focus-task" class="field"></select>
+              <div class="focus-durations" role="group" aria-label="Duração da sessão">
+                <button type="button" class="mini-button" data-focus-minutes="15" aria-pressed="false">15 min</button>
+                <button type="button" class="mini-button" data-focus-minutes="25" aria-pressed="true">25 min</button>
+                <button type="button" class="mini-button" data-focus-minutes="50" aria-pressed="false">50 min</button>
+              </div>
+              <div class="focus-actions">
+                <button id="focus-start" class="button primary" type="button">Iniciar</button>
+                <button id="focus-reset" class="button secondary" type="button">Zerar</button>
+              </div>
+            </div>
+          </div>
+        </section>
       </section>
 
       <section class="page" id="page-tarefas">
@@ -193,6 +212,16 @@
             <div class="compare-col"><span class="muted small">7 dias antes</span><strong id="week-prev-rate">—</strong><small id="week-prev-detail"></small></div>
           </div>
           <p id="week-compare-note" class="muted small"></p>
+        </section>
+        <section class="panel review-panel">
+          <h2><span class="accent">✎</span> Revisão da semana <small class="muted">(últimos 7 dias)</small></h2>
+          <ul id="weekly-review" class="review-list"></ul>
+          <button id="review-copy" class="mini-button" type="button">Copiar resumo</button>
+        </section>
+        <section class="panel notes-panel">
+          <h2><span class="accent">✎</span> Diário — <span id="notes-range-label">últimos 7 dias</span></h2>
+          <div id="notes-list" class="history-list"></div>
+          <button id="notes-range" class="mini-button" type="button">Mostrar 30 dias</button>
         </section>
         <section class="panel insights-panel">
           <h2><span class="accent">✧</span> Insights</h2>
@@ -268,6 +297,16 @@
           </form>
           <div id="recurring-list" class="history-list"></div>
         </section>
+        <section class="panel spaced-panel">
+          <h2><span class="accent">◐</span> Aparência</h2>
+          <p class="muted">Escolha as cores de destaque. A escolha fica salva neste aparelho.</p>
+          <div class="theme-picker" role="group" aria-label="Tema de cores">
+            <button type="button" class="theme-swatch" data-theme="neon" aria-pressed="true"><span></span>Neon</button>
+            <button type="button" class="theme-swatch" data-theme="oceano" aria-pressed="false"><span></span>Oceano</button>
+            <button type="button" class="theme-swatch" data-theme="sunset" aria-pressed="false"><span></span>Pôr do sol</button>
+            <button type="button" class="theme-swatch" data-theme="rosa" aria-pressed="false"><span></span>Rosa</button>
+          </div>
+        </section>
       </section>
 
       <footer class="footer">FOCUS · Seu progresso é construído um dia de cada vez.</footer>
@@ -293,5 +332,12 @@
     </form>
   </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <div id="install-banner" class="install-banner" role="dialog" aria-label="Instalar o FOCUS" hidden>
+    <div><strong>Instalar o FOCUS</strong><p class="muted small">Adicione o atalho na tela inicial e use como app, até offline.</p></div>
+    <div class="install-actions">
+      <button id="install-accept" class="button primary" type="button">Instalar</button>
+      <button id="install-dismiss" class="mini-button" type="button">Agora não</button>
+    </div>
+  </div>
 </body>
 </html>
