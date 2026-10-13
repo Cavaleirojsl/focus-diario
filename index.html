@@ -24,6 +24,7 @@
         <button class="nav-link active" data-page="inicio">⌂ <span>Início</span></button>
         <button class="nav-link" data-page="tarefas">☑ <span>Minhas tarefas</span></button>
         <button class="nav-link" data-page="estatisticas">▥ <span>Estatísticas</span></button>
+        <button class="nav-link" data-page="calendario">▦ <span>Calendário</span></button>
         <button class="nav-link" data-page="objetivos">◎ <span>Objetivos</span></button>
       </nav>
       <p class="sidebar-quote">“Você não precisa ser o melhor do mundo, só melhor que ontem.”</p>
@@ -55,6 +56,10 @@
                 <select id="task-category" class="field">
                   <option>Saúde / Fitness</option><option>Estudos</option><option>Trabalho</option>
                   <option>Tecnologia</option><option>Projeto</option><option>Pessoal</option><option>Lazer</option><option>Outro</option>
+                </select>
+                <label class="sr-only" for="task-priority">Prioridade</label>
+                <select id="task-priority" class="field priority-field">
+                  <option value="normal">Prioridade normal</option><option value="high">Prioridade alta</option><option value="low">Prioridade baixa</option>
                 </select>
                 <label class="sr-only" for="task-description">Descrição</label>
                 <textarea id="task-description" class="field description-field" maxlength="500" rows="2" placeholder="Descrição opcional: como foi? O que aprendeu?"></textarea>
@@ -146,6 +151,10 @@
             <p id="backup-note" class="muted small backup-note" role="status"></p>
           </section>
         </div>
+        <section class="panel tips-panel spaced-panel">
+          <h2><span class="accent">✦</span> Dicas para você</h2>
+          <ul id="tips-list" class="review-list"></ul>
+        </section>
         <section class="panel focus-panel spaced-panel">
           <h2><span class="accent">◔</span> Modo foco</h2>
           <div class="focus-body">
@@ -196,6 +205,21 @@
           <article class="stat-card"><strong id="total-failure">0</strong><span>Falhas registradas</span></article>
           <article class="stat-card"><strong id="total-rate">—</strong><span>Taxa geral de sucesso</span></article>
         </div>
+        <section class="panel xp-panel">
+          <h2><span class="accent">★</span> Nível e conquistas</h2>
+          <p id="xp-summary" class="xp-summary"></p>
+          <div class="bar"><div id="xp-bar" class="bar-fill"></div></div>
+          <p class="muted small">+10 XP por sucesso · +3 por falha avaliada (registrar com honestidade conta) · +2 por nota · +2 por check-in</p>
+          <div class="xp-week">
+            <p id="xp-week-summary" class="muted"></p>
+            <div class="bar"><div id="xp-week-bar" class="bar-fill"></div></div>
+            <div class="xp-goal-row">
+              <label class="edit-label" for="xp-goal">Meta semanal de XP</label>
+              <input id="xp-goal" class="field" type="number" min="10" max="2000" step="10" inputmode="numeric">
+            </div>
+          </div>
+          <ul id="achievements" class="achievements"></ul>
+        </section>
         <section class="panel consistency-panel">
           <h2><span class="accent">✦</span> Consistência</h2>
           <div class="stat-cards streak-cards">
@@ -223,6 +247,20 @@
           <div id="notes-list" class="history-list"></div>
           <button id="notes-range" class="mini-button" type="button">Mostrar 30 dias</button>
         </section>
+        <section class="panel report-panel">
+          <h2><span class="accent">⇩</span> Relatórios</h2>
+          <label class="edit-label" for="report-range">Período</label>
+          <select id="report-range" class="field">
+            <option value="7">Últimos 7 dias</option>
+            <option value="30" selected>Últimos 30 dias</option>
+            <option value="all">Todo o histórico</option>
+          </select>
+          <div class="backup-actions">
+            <button id="report-html" class="button secondary" type="button">⇩ Relatório (.html)</button>
+            <button id="report-csv" class="button secondary" type="button">⇩ Tarefas (.csv)</button>
+          </div>
+          <p class="muted small">O relatório abre no navegador e pode ser salvo como PDF pela opção Imprimir.</p>
+        </section>
         <section class="panel insights-panel">
           <h2><span class="accent">✧</span> Insights</h2>
           <h3 class="insight-title">Categoria para observar <small>(últimos 30 dias)</small></h3>
@@ -248,6 +286,27 @@
         <section class="panel spaced-panel">
           <h2><span class="accent">☷</span> Registros recentes</h2>
           <div id="history-list" class="history-list"></div>
+        </section>
+      </section>
+
+      <section class="page" id="page-calendario">
+        <section class="panel">
+          <h2><span class="accent">▦</span> Calendário</h2>
+          <div class="day-nav" role="group" aria-label="Navegar entre meses">
+            <button id="calendar-prev" class="mini-button" type="button" aria-label="Mês anterior">‹</button>
+            <span id="calendar-label" class="day-label"></span>
+            <button id="calendar-next" class="mini-button" type="button" aria-label="Próximo mês">›</button>
+          </div>
+          <div class="calendar-weekdays" aria-hidden="true"><span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span></div>
+          <div id="calendar-grid" class="calendar-grid"></div>
+          <p class="muted small">Verde: 80% ou mais · Roxo: 50 a 79% · Vermelho: abaixo de 50% · Cinza: sem avaliação · ponto: tem nota</p>
+        </section>
+        <section class="panel spaced-panel">
+          <h2 id="calendar-detail-title">Dia</h2>
+          <p id="calendar-detail-meta" class="muted small"></p>
+          <div id="calendar-detail-tasks" class="history-list"></div>
+          <p id="calendar-detail-note" class="diary-note"></p>
+          <button id="calendar-open" class="button secondary" type="button">Abrir este dia no Início</button>
         </section>
       </section>
 
@@ -283,6 +342,10 @@
             <input id="recurring-name" class="field" maxlength="100" placeholder="Ex.: Treino" required>
             <label class="sr-only" for="recurring-category">Categoria</label>
             <select id="recurring-category" class="field"></select>
+            <label class="sr-only" for="recurring-priority">Prioridade</label>
+            <select id="recurring-priority" class="field">
+              <option value="normal">Prioridade normal</option><option value="high">Prioridade alta</option><option value="low">Prioridade baixa</option>
+            </select>
             <fieldset class="day-picker">
               <legend class="sr-only">Dias da semana</legend>
               <label class="day-check"><input type="checkbox" value="0">Dom</label>
@@ -293,9 +356,20 @@
               <label class="day-check"><input type="checkbox" value="5">Sex</label>
               <label class="day-check"><input type="checkbox" value="6">Sáb</label>
             </fieldset>
-            <button class="button primary" type="submit">Adicionar recorrência</button>
+            <button id="recurring-submit" class="button primary" type="submit">Adicionar recorrência</button>
+            <button id="recurring-cancel" class="button secondary" type="button" hidden>Cancelar edição</button>
           </form>
           <div id="recurring-list" class="history-list"></div>
+        </section>
+        <section class="panel spaced-panel">
+          <h2><span class="accent">⏰</span> Lembrete diário</h2>
+          <p class="muted">Um aviso para você avaliar suas tarefas. Funciona com o FOCUS aberto ou em segundo plano: o navegador não permite avisos com o app totalmente fechado.</p>
+          <div class="reminder-row">
+            <label class="reminder-toggle"><input id="reminder-enabled" type="checkbox"> Ativar lembrete</label>
+            <label class="sr-only" for="reminder-time">Horário do lembrete</label>
+            <input id="reminder-time" class="field" type="time" value="20:00">
+          </div>
+          <p id="reminder-note" class="muted small" role="status"></p>
         </section>
         <section class="panel spaced-panel">
           <h2><span class="accent">◐</span> Aparência</h2>
@@ -319,6 +393,8 @@
       <input id="edit-name" class="field" maxlength="100" required pattern=".*\S.*" title="O nome não pode ficar vazio">
       <label class="edit-label" for="edit-category">Categoria</label>
       <select id="edit-category" class="field"></select>
+      <label class="edit-label" for="edit-priority">Prioridade</label>
+      <select id="edit-priority" class="field"><option value="high">Alta</option><option value="normal">Normal</option><option value="low">Baixa</option></select>
       <label class="edit-label" for="edit-description">Descrição</label>
       <textarea id="edit-description" class="field" maxlength="500" rows="4" placeholder="Como foi? O que aprendeu?"></textarea>
       <div id="edit-reason-group" class="edit-reason-group" hidden>
