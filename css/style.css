@@ -257,4 +257,8 @@ p { margin-top: 0; }
 .reminder-toggle { display: flex; align-items: center; gap: 8px; font-weight: 700; }
 .reminder-toggle input { accent-color: var(--purple); }
 .reminder-row .field { width: auto; }
+  .xp-week { margin: 14px 0 0; }
+.xp-goal-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.xp-goal-row .field { width: 110px; }
+.tips-panel h2 { margin-top: 0; }
 }
