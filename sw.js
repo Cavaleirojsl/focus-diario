@@ -1,8 +1,8 @@
 /* FOCUS — service worker (modo offline).
    Estratégia: rede primeiro (você sempre recebe a versão nova quando está online)
    e cache como reserva quando estiver sem internet. */
-const CACHE = "focus-v1";
-const CORE = ["./", "index.html", "css/style.css", "js/app.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
+const CACHE = "focus-v2";
+const CORE = ["./", "index.html", "css/style.css", "js/app.js", "js/cloud.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 const CHART_URL = "https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.js";
 
 self.addEventListener("install", (event) => {
