@@ -7,11 +7,13 @@
   <meta name="description" content="FOCUS — Diário de evolução pessoal, tarefas e desempenho.">
   <title>FOCUS — Diário de Evolução</title>
   <link rel="manifest" href="manifest.webmanifest">
+  <meta name="color-scheme" content="dark">
   <link rel="icon" type="image/png" href="icon-192.png">
   <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="stylesheet" href="css/style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.js"></script>
   <script src="js/app.js" defer></script>
+  <script src="js/cloud.js" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -78,6 +80,13 @@
                 <button id="day-next" class="mini-button" type="button" aria-label="Próximo dia">›</button>
                 <button id="day-today" class="mini-button" type="button">Hoje</button>
                 <button id="day-repeat" class="mini-button" type="button">↻ Copiar do dia anterior</button>
+                <label class="sr-only" for="day-sort">Ordenar tarefas</label>
+                <select id="day-sort" class="field sort-select">
+                  <option value="priority">Prioridade primeiro</option>
+                  <option value="newest">Mais recentes</option>
+                  <option value="oldest">Mais antigas</option>
+                  <option value="pending">Pendentes primeiro</option>
+                </select>
               </div>
               <div id="task-list" class="task-list"></div>
             </section>
@@ -194,6 +203,10 @@
             <select id="filter-category" class="field"></select>
             <button id="filter-clear" class="mini-button" type="button">Limpar filtros</button>
           </div>
+          <div class="archive-row">
+            <label class="reminder-toggle"><input id="filter-archived" type="checkbox"> Mostrar arquivadas</label>
+            <button id="archive-old" class="mini-button" type="button">Arquivar com mais de 60 dias</button>
+          </div>
           <p id="filter-count" class="muted small" role="status"></p>
           <div id="all-task-list" class="task-list"></div>
         </section>
@@ -236,6 +249,11 @@
             <div class="compare-col"><span class="muted small">7 dias antes</span><strong id="week-prev-rate">—</strong><small id="week-prev-detail"></small></div>
           </div>
           <p id="week-compare-note" class="muted small"></p>
+        </section>
+        <section class="panel trend-panel">
+          <h2><span class="accent">↗</span> Evolução semanal <small class="muted">(taxa de sucesso, 8 semanas)</small></h2>
+          <div class="trend-box"><canvas id="trend-chart" aria-label="Taxa de sucesso por semana"></canvas></div>
+          <p class="muted small">Cada ponto é um bloco de 7 dias. Semanas sem tarefas avaliadas ficam sem ponto.</p>
         </section>
         <section class="panel review-panel">
           <h2><span class="accent">✎</span> Revisão da semana <small class="muted">(últimos 7 dias)</small></h2>
@@ -361,6 +379,37 @@
           </form>
           <div id="recurring-list" class="history-list"></div>
         </section>
+        <section class="panel spaced-panel" id="account-panel">
+          <h2><span class="accent">☁</span> Conta e nuvem</h2>
+          <p id="account-status" class="muted" role="status"></p>
+          <form id="auth-form" class="auth-form">
+            <button id="auth-google" class="button secondary google-btn" type="button">
+              <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.5z"/><path fill="#FBBC05" d="M10.5 28.7c-.5-1.5-.8-3-.8-4.7s.3-3.2.8-4.7l-7.9-6.1C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.8 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
+              <span>Continuar com Google</span>
+            </button>
+            <p class="auth-divider muted small">ou use e-mail e senha</p>
+            <label class="sr-only" for="auth-email">E-mail</label>
+            <input id="auth-email" class="field" type="email" autocomplete="email" placeholder="seu@email.com" required>
+            <label class="sr-only" for="auth-password">Senha</label>
+            <input id="auth-password" class="field" type="password" autocomplete="current-password" minlength="8" placeholder="Senha (mínimo 8 caracteres)" required>
+            <div class="auth-actions">
+              <button id="auth-signin" class="button primary" type="submit">Entrar</button>
+              <button id="auth-signup" class="button secondary" type="button">Criar conta</button>
+            </div>
+          </form>
+          <div id="auth-session" class="auth-session" hidden>
+            <p>Conectado como <strong id="auth-user"></strong></p>
+            <div id="sync-box" class="sync-box" hidden>
+              <p id="sync-status" class="muted small" role="status"></p>
+              <div class="sync-actions">
+                <button id="sync-now" class="button secondary" type="button">Sincronizar agora</button>
+                <button id="auth-signout" class="button secondary" type="button">Sair</button>
+                <button id="cloud-delete" class="mini-button" type="button">Apagar nuvem e sair</button>
+              </div>
+            </div>
+          </div>
+          <p class="muted small">Seus registros ficam sempre salvos neste aparelho. Com a conta, uma cópia fica na nuvem, ligada só a você, e é sincronizada entre seus aparelhos. Se houver mudanças nos dois lados, o FOCUS combina tudo sem apagar nada.</p>
+        </section>
         <section class="panel spaced-panel">
           <h2><span class="accent">⏰</span> Lembrete diário</h2>
           <p class="muted">Um aviso para você avaliar suas tarefas. Funciona com o FOCUS aberto ou em segundo plano: o navegador não permite avisos com o app totalmente fechado.</p>
@@ -381,6 +430,21 @@
             <button type="button" class="theme-swatch" data-theme="rosa" aria-pressed="false"><span></span>Rosa</button>
           </div>
         </section>
+        <details class="panel help-panel spaced-panel">
+          <summary>Ajuda e sobre o FOCUS</summary>
+          <h3 class="insight-title">Como usar</h3>
+          <ul class="review-list">
+            <li>Adicione tarefas na tela Início e toque no status para alternar entre pendente, sucesso e falha.</li>
+            <li>Use as setas ‹ › para ver ou registrar outros dias. "Copiar do dia anterior" repete sua rotina.</li>
+            <li>Falhas são informação, não defeito: anote o motivo para descobrir padrões.</li>
+            <li>Estatísticas mostram sua taxa, sequência, insights, conquistas e relatórios.</li>
+          </ul>
+          <h3 class="insight-title">Seus dados</h3>
+          <p class="muted">Tudo fica salvo apenas neste aparelho, no navegador. Limpar os dados do navegador apaga os registros. Exporte um backup (.json) de vez em quando, em Início → Reflexão pessoal.</p>
+          <h3 class="insight-title">Instalar como app</h3>
+          <p class="muted">No Chrome do Android, abra o menu ⋮ e toque em "Instalar app". Depois de instalado, o FOCUS abre mesmo sem internet.</p>
+          <p class="muted small">FOCUS — Diário de Evolução · versão 2.0</p>
+        </details>
       </section>
 
       <footer class="footer">FOCUS · Seu progresso é construído um dia de cada vez.</footer>
