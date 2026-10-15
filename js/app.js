@@ -37,9 +37,12 @@
   let historyChart = null;
   let toastTimer = null;
 
+  const changeListeners = [];
+  let suppressChange = false;
   function save() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+      if (!suppressChange) changeListeners.forEach((listener) => { try { listener(); } catch (error) { /* ignora */ } });
       return true;
     } catch (error) {
       showToast("Não foi possível salvar. Exporte os dados e verifique o espaço do navegador.");
@@ -111,6 +114,7 @@
       status,
       failureReason: status === "failure" && typeof raw.failureReason === "string" ? raw.failureReason.trim().slice(0, 40) : "",
       priority: PRIORITIES.includes(raw.priority) ? raw.priority : "normal",
+      archived: raw.archived === true,
       date: raw.date,
       time: typeof raw.time === "string" && TIME_PATTERN.test(raw.time) ? raw.time : ""
     };
@@ -170,7 +174,7 @@
         return;
       }
       const isObject = (value) => value && typeof value === "object" && !Array.isArray(value);
-      if (!isObject(data) || (!Array.isArray(data.tasks) && !Array.isArray(data.goals) && !Array.isArray(data.recurring) && !isObject(data.notes) && !isObject(data.moods))) {
+      if (!isObject(data) || (!Array.isArray(data.tasks) && !Array.isArray(data.goals) && !Array.isArray(data.recurring) && !isObject(data.notes) && !isObject(data.moods) && !isObject(data.settings))) {
         showToast("Esse arquivo não parece um backup do FOCUS.");
         return;
       }
@@ -200,23 +204,31 @@
         });
       }
       const extras = Object.keys(newNotes).length + Object.keys(newMoods).length;
-      if (!newTasks.length && !newGoals.length && !newRecurring.length && !extras) {
+      const hasSettings = isObject(data.settings);
+      const hasNewData = Boolean(newTasks.length || newGoals.length || newRecurring.length || extras);
+      if (!hasNewData && !hasSettings) {
         showToast("Nada novo para importar: esses dados já estão aqui.");
         return;
       }
-      if (!confirm(`Importar ${newTasks.length} tarefa(s), ${newGoals.length} objetivo(s), ${newRecurring.length} recorrência(s) e ${extras} registro(s) de nota/humor? Seus dados atuais serão mantidos.`)) return;
-      const previous = { tasks: store.tasks, goals: store.goals, recurring: store.recurring, notes: store.notes, moods: store.moods };
-      store.tasks = store.tasks.concat(newTasks).sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
-      store.goals = store.goals.concat(newGoals);
-      store.recurring = store.recurring.concat(newRecurring);
-      store.notes = { ...store.notes, ...newNotes };
-      store.moods = { ...store.moods, ...newMoods };
-      if (!save()) {
-        Object.assign(store, previous);
-        return;
+      if (hasNewData && !confirm(`Importar ${newTasks.length} tarefa(s), ${newGoals.length} objetivo(s), ${newRecurring.length} recorrência(s) e ${extras} registro(s) de nota/humor? Seus dados atuais serão mantidos.`)) return;
+      const applyConfig = hasSettings && confirm("Aplicar também as configurações do backup (tema, meta de XP, lembrete e ordem da lista)?");
+      if (!hasNewData && !applyConfig) return;
+      if (hasNewData) {
+        const previous = { tasks: store.tasks, goals: store.goals, recurring: store.recurring, notes: store.notes, moods: store.moods };
+        store.tasks = store.tasks.concat(newTasks).sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+        store.goals = store.goals.concat(newGoals);
+        store.recurring = store.recurring.concat(newRecurring);
+        store.notes = { ...store.notes, ...newNotes };
+        store.moods = { ...store.moods, ...newMoods };
+        if (!save()) {
+          Object.assign(store, previous);
+          return;
+        }
       }
+      if (applyConfig) applySettings(data.settings);
       renderAll();
-      showToast(`Importado: ${newTasks.length} tarefa(s), ${newGoals.length} objetivo(s), ${newRecurring.length} recorrência(s).`);
+      renderReminder();
+      showToast(hasNewData ? `Importado: ${newTasks.length} tarefa(s), ${newGoals.length} objetivo(s), ${newRecurring.length} recorrência(s).` : "Configurações aplicadas.");
     };
     reader.readAsText(file);
   }
@@ -263,7 +275,7 @@
       <article class="task">
         <div class="task-icon" aria-hidden="true">${icon}</div>
         <div class="task-main">
-          <div class="task-meta"><span class="task-title">${escapeHTML(task.name)}</span><span class="tag">${escapeHTML(task.category)}</span>${priorityOf(task) === "high" ? '<span class="tag tag-high">Prioridade alta</span>' : priorityOf(task) === "low" ? '<span class="tag tag-low">Baixa</span>' : ""}</div>
+          <div class="task-meta"><span class="task-title">${escapeHTML(task.name)}</span><span class="tag">${escapeHTML(task.category)}</span>${priorityOf(task) === "high" ? '<span class="tag tag-high">Prioridade alta</span>' : priorityOf(task) === "low" ? '<span class="tag tag-low">Baixa</span>' : ""}${task.archived ? '<span class="tag tag-low">Arquivada</span>' : ""}</div>
           <p class="task-description">${escapeHTML(task.description || "Sem descrição adicionada.")}</p>
           ${task.status === "failure" && task.failureReason ? `<small class="failure-reason">Motivo: ${escapeHTML(task.failureReason)}</small>` : ""}
           <small class="muted">${dateLabel(task.date)}${task.time ? ` · ${escapeHTML(task.time)}` : ""}</small>
@@ -271,6 +283,7 @@
         <div class="task-actions">
           <button class="status ${task.status}" data-status="${escapeHTML(task.id)}" type="button" aria-label="Alterar status de ${escapeHTML(task.name)}">${statusLabel(task.status)}</button>
           <button class="mini-button" data-edit="${escapeHTML(task.id)}" type="button">Editar</button>
+          ${task.archived ? `<button class="mini-button" data-unarchive="${escapeHTML(task.id)}" type="button">Desarquivar</button>` : ""}
           <button class="mini-button" data-delete="${escapeHTML(task.id)}" type="button">Excluir</button>
         </div>
       </article>`;
@@ -287,15 +300,17 @@
     const text = normalizeText($("filter-text").value.trim());
     const status = $("filter-status").value;
     const category = categorySelect.value;
-    const filtered = store.tasks.filter((task) => {
+    const showArchived = $("filter-archived").checked;
+    const base = store.tasks.filter((task) => showArchived || !task.archived);
+    const filtered = base.filter((task) => {
       if (status && task.status !== status) return false;
       if (category && task.category !== category) return false;
       return !text || normalizeText(`${task.name} ${task.description} ${task.category}`).includes(text);
     });
-    $("filter-count").textContent = store.tasks.length ? `Mostrando ${filtered.length} de ${store.tasks.length} tarefa(s).` : "";
+    $("filter-count").textContent = base.length ? `Mostrando ${filtered.length} de ${base.length} tarefa(s).` : "";
     $("all-task-list").innerHTML = filtered.length
       ? filtered.slice().reverse().map(taskMarkup).join("")
-      : `<div class="empty">${store.tasks.length ? "Nenhuma tarefa encontrada com esses filtros." : "Ainda não há tarefas registradas."}</div>`;
+      : `<div class="empty">${base.length ? "Nenhuma tarefa encontrada com esses filtros." : "Ainda não há tarefas registradas."}</div>`;
   }
   function renderTasks() {
     const today = getSelectedDayTasks();
@@ -305,7 +320,7 @@
     $("day-next").disabled = isToday;
     $("day-today").disabled = isToday;
     $("task-list").innerHTML = today.length
-      ? today.slice().reverse().sort((a, b) => PRIORITY_WEIGHT[priorityOf(a)] - PRIORITY_WEIGHT[priorityOf(b)]).map(taskMarkup).join("")
+      ? sortDayTasks(today).map(taskMarkup).join("")
       : `<div class="empty">${isToday ? "Nenhuma atividade registrada hoje. Adicione sua primeira tarefa acima ✦" : "Nenhuma atividade registrada neste dia. Você pode adicionar tarefas acima ou copiar as do dia anterior."}</div>`;
     $("task-count").textContent = `${today.filter((task) => task.status !== "pending").length} de ${today.length} avaliadas`;
     renderAllTasks();
@@ -557,6 +572,7 @@
     renderDiary();
     renderWeeklyReview();
     renderProgress();
+    renderTrendChart();
     $("statistics-period").textContent = { day: "Hoje", week: "Últimos 7 dias", month: "Este mês" }[selectedPeriod];
     const tasks = getPeriodTasks();
     $("history-list").innerHTML = tasks.length ? tasks.slice().reverse().slice(0, 30).map((task) => `
@@ -1107,6 +1123,72 @@ ${noteRows ? `<h2>Notas</h2>${noteRows}` : ""}
     }
     renderReminder();
   }
+  const DAY_SORTS = ["priority", "newest", "oldest", "pending"];
+  const SORT_KEY = "focus-diario-ordem";
+  let daySort = "priority";
+  try {
+    const savedSort = localStorage.getItem(SORT_KEY);
+    if (DAY_SORTS.includes(savedSort)) daySort = savedSort;
+  } catch (error) { /* usa o padrão */ }
+  function sortDayTasks(list) {
+    const newest = list.slice().reverse();
+    if (daySort === "oldest") return list.slice();
+    if (daySort === "newest") return newest;
+    if (daySort === "pending") return newest.sort((a, b) => (a.status === "pending" ? 0 : 1) - (b.status === "pending" ? 0 : 1));
+    return newest.sort((a, b) => PRIORITY_WEIGHT[priorityOf(a)] - PRIORITY_WEIGHT[priorityOf(b)]);
+  }
+  function collectSettings() {
+    let theme = "neon";
+    try { theme = localStorage.getItem(THEME_KEY) || "neon"; } catch (error) { /* usa o padrão */ }
+    return { theme, xpGoal, reminder: { enabled: reminder.enabled, time: reminder.time }, unlocked: unlocked || [], daySort };
+  }
+  function applySettings(raw) {
+    if (!raw || typeof raw !== "object") return;
+    try {
+      if (typeof raw.theme === "string" && THEMES[raw.theme]) localStorage.setItem(THEME_KEY, applyTheme(raw.theme));
+      const goal = Number(raw.xpGoal);
+      if (Number.isInteger(goal) && goal >= 10 && goal <= 2000) { xpGoal = goal; localStorage.setItem(XP_GOAL_KEY, String(goal)); }
+      if (DAY_SORTS.includes(raw.daySort)) { daySort = raw.daySort; $("day-sort").value = daySort; localStorage.setItem(SORT_KEY, daySort); }
+      if (Array.isArray(raw.unlocked)) {
+        const names = ACHIEVEMENTS.map((item) => item.name);
+        unlocked = Array.from(new Set((unlocked || []).concat(raw.unlocked.filter((name) => names.includes(name)))));
+        localStorage.setItem(ACH_KEY, JSON.stringify(unlocked));
+      }
+    } catch (error) { /* sem espaço: ignora */ }
+    if (raw.reminder && typeof raw.reminder === "object") {
+      reminder.enabled = raw.reminder.enabled === true;
+      if (TIME_PATTERN.test(raw.reminder.time)) reminder.time = raw.reminder.time;
+      reminder.lastDate = clockNow() >= reminder.time ? todayKey() : "";
+      saveReminder();
+    }
+  }
+  let trendChart = null;
+  function renderTrendChart() {
+    if (typeof Chart === "undefined") return;
+    const today = todayKey();
+    const labels = [];
+    const rates = [];
+    for (let i = 7; i >= 0; i -= 1) {
+      const end = shiftDate(today, -7 * i);
+      const start = shiftDate(end, -6);
+      rates.push(weekRate(countStatuses(store.tasks.filter((task) => task.date >= start && task.date <= end))));
+      labels.push(i === 0 ? "Atual" : dateLabel(start));
+    }
+    if (trendChart) trendChart.destroy();
+    trendChart = new Chart($("trend-chart"), {
+      type: "line",
+      data: { labels, datasets: [{ label: "Taxa de sucesso (%)", data: rates, borderColor: "#28e7d5", backgroundColor: "#28e7d533", pointBackgroundColor: "#28e7d5", tension: 0.3, fill: true, spanGaps: false }] },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: { min: 0, max: 100, ticks: { color: "#9ba3c9", callback: (value) => `${value}%` }, grid: { color: "#29234e" } },
+          x: { ticks: { color: "#9ba3c9", maxRotation: 0 }, grid: { display: false } }
+        },
+        plugins: { legend: { display: false } }
+      }
+    });
+  }
   function renderAll() {
     applyRecurring();
     renderTasks();
@@ -1443,7 +1525,7 @@ ${noteRows ? `<h2>Notas</h2>${noteRows}` : ""}
     } });
   });
   $("export-button").addEventListener("click", () => {
-    const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), ...store }, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), ...store, settings: collectSettings() }, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url; link.download = "focus-backup.json"; link.click();
@@ -1519,6 +1601,33 @@ ${noteRows ? `<h2>Notas</h2>${noteRows}` : ""}
     downloadFile(`focus-tarefas-${todayKey()}.csv`, buildCsv(), "text/csv");
     showToast("Planilha gerada.");
   });
+  $("day-sort").value = daySort;
+  $("day-sort").addEventListener("change", () => {
+    daySort = DAY_SORTS.includes($("day-sort").value) ? $("day-sort").value : "priority";
+    try { localStorage.setItem(SORT_KEY, daySort); } catch (error) { /* ignora */ }
+    renderTasks();
+  });
+  $("filter-archived").addEventListener("change", renderAllTasks);
+  $("archive-old").addEventListener("click", () => {
+    const limit = shiftDate(todayKey(), -60);
+    const old = store.tasks.filter((task) => !task.archived && task.date < limit);
+    if (!old.length) { showToast("Nenhuma tarefa com mais de 60 dias para arquivar."); return; }
+    if (!confirm(`Arquivar ${old.length} tarefa(s) com mais de 60 dias? Elas saem da lista, mas continuam nas estatísticas, no calendário e nos relatórios.`)) return;
+    old.forEach((task) => { task.archived = true; });
+    save(); renderAll();
+    showToast(`${old.length} tarefa(s) arquivada(s).`, { label: "Desfazer", onClick: () => {
+      old.forEach((task) => { delete task.archived; });
+      save(); renderAll(); showToast("Arquivamento desfeito.");
+    } });
+  });
+  $("all-task-list").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-unarchive]");
+    if (!button) return;
+    const task = store.tasks.find((item) => item.id === button.dataset.unarchive);
+    if (!task) return;
+    delete task.archived;
+    save(); renderAll(); showToast("Tarefa desarquivada.");
+  });
   $("xp-goal").addEventListener("change", () => {
     const value = Number($("xp-goal").value);
     if (!Number.isInteger(value) || value < 10 || value > 2000) {
@@ -1553,6 +1662,87 @@ ${noteRows ? `<h2>Notas</h2>${noteRows}` : ""}
   $("install-dismiss").addEventListener("click", () => { $("install-banner").hidden = true; });
   window.addEventListener("appinstalled", () => { $("install-banner").hidden = true; installPrompt = null; });
   renderFocus();
+  function normalizeData(raw) {
+    const source = raw && typeof raw === "object" ? raw : {};
+    const unique = (items, clean) => {
+      const seen = new Set();
+      const output = [];
+      (Array.isArray(items) ? items : []).forEach((item) => {
+        const cleaned = clean(item);
+        if (cleaned && !seen.has(cleaned.id)) { seen.add(cleaned.id); output.push(cleaned); }
+      });
+      return output;
+    };
+    const isObject = (value) => value && typeof value === "object" && !Array.isArray(value);
+    const notes = {};
+    if (isObject(source.notes)) {
+      Object.entries(source.notes).forEach(([date, text]) => {
+        if (DATE_PATTERN.test(date) && typeof text === "string" && text.trim()) notes[date] = text.trim().slice(0, 1000);
+      });
+    }
+    const moods = {};
+    if (isObject(source.moods)) {
+      Object.entries(source.moods).forEach(([date, entry]) => {
+        const cleaned = cleanMood(entry);
+        if (DATE_PATTERN.test(date) && cleaned) moods[date] = cleaned;
+      });
+    }
+    return {
+      tasks: unique(source.tasks, cleanTask).sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)),
+      goals: unique(source.goals, cleanGoal),
+      recurring: unique(source.recurring, cleanRecurring),
+      notes,
+      moods
+    };
+  }
+  function mergeData(local, remote) {
+    const union = (mine, theirs, pick) => {
+      const map = new Map();
+      mine.forEach((item) => map.set(item.id, item));
+      theirs.forEach((item) => {
+        if (!map.has(item.id)) map.set(item.id, item);
+        else if (pick) map.set(item.id, pick(map.get(item.id), item));
+      });
+      return Array.from(map.values());
+    };
+    const notes = { ...remote.notes };
+    Object.entries(local.notes).forEach(([date, text]) => {
+      const other = remote.notes[date];
+      const both = `${text}\n— outra versão —\n${other}`;
+      notes[date] = !other || other === text ? text : both.length <= 1000 ? both : text;
+    });
+    const moods = {};
+    new Set([...Object.keys(local.moods), ...Object.keys(remote.moods)]).forEach((date) => {
+      moods[date] = { ...(remote.moods[date] || {}), ...(local.moods[date] || {}) };
+    });
+    return {
+      tasks: union(local.tasks, remote.tasks).sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)),
+      goals: union(local.goals, remote.goals),
+      recurring: union(local.recurring, remote.recurring, (mine, theirs) => ({ ...mine, lastRun: mine.lastRun > theirs.lastRun ? mine.lastRun : theirs.lastRun })),
+      notes,
+      moods
+    };
+  }
+  function applyData(data) {
+    const clean = normalizeData(data);
+    store.tasks = clean.tasks;
+    store.goals = clean.goals;
+    store.recurring = clean.recurring;
+    store.notes = clean.notes;
+    store.moods = clean.moods;
+    suppressChange = true;
+    save();
+    suppressChange = false;
+    renderAll();
+  }
+  window.FocusApp = {
+    getData: () => normalizeData(store),
+    applyData,
+    normalize: normalizeData,
+    merge: mergeData,
+    isEmpty: (data) => !data.tasks.length && !data.goals.length && !data.recurring.length && !Object.keys(data.notes).length && !Object.keys(data.moods).length,
+    onChange: (listener) => { changeListeners.push(listener); }
+  };
   if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
     window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
   }
